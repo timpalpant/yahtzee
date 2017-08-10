@@ -16,6 +16,6 @@ func main() {
 		fmt.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	newGame := &yahtzee.GameState{}
+	newGame := yahtzee.GameState{}
 	fmt.Println(yahtzee.ExpectedScore(newGame))
 }

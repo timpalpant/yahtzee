@@ -11,9 +11,9 @@ import (
 
 const nDice = 5
 
-var expectedScoreCache = map[*GameState]float64{}
+var expectedScoreCache = map[GameState]float64{}
 
-func ExpectedScore(gs *GameState) float64 {
+func ExpectedScore(gs GameState) float64 {
 	remainingPositions := gs.AvailablePositions()
 	if len(remainingPositions) == 0 {
 		return 0.0 // Game over.

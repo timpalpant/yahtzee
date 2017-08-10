@@ -3,7 +3,6 @@ package yahtzee
 import (
 	"fmt"
 
-	"github.com/timpalpant/yahtzee/dice"
 	"github.com/timpalpant/yahtzee/scoring"
 	"github.com/timpalpant/yahtzee/tricks"
 )
@@ -85,19 +84,14 @@ func (gs *GameState) ValueAt(roll []int, position tricks.Position) int {
 }
 
 // Return a new GameState constructed by playing the given dice on a position.
-func (gs *GameState) PlayPosition(roll []int, position tricks.Position) *GameState {
+func (gs *GameState) PlayPosition(roll []int, position tricks.Position) GameState {
 	if gs.played[position] {
 		panic(fmt.Errorf("position has already been played: %v", position))
 	}
 
-	if result, ok := getCachedGameState(gs, roll, position); ok {
-		return result
-	}
-
 	value := scoring.PositionScore(roll, position)
 
-	result := &GameState{}
-	*result = *gs
+	result := *gs
 	result.played[position] = true
 	result.nPlayed++
 
@@ -114,31 +108,5 @@ func (gs *GameState) PlayPosition(roll []int, position tricks.Position) *GameSta
 		result.bonusEligible = true
 	}
 
-	putCachedGameState(gs, roll, position, result)
 	return result
-}
-
-var gameStateCache = map[*GameState]map[int]map[tricks.Position]*GameState{}
-
-func getCachedGameState(input *GameState, roll []int, position tricks.Position) (*GameState, bool) {
-	diceHash := dice.Hash(roll)
-	gameState, ok := gameStateCache[input][diceHash][position]
-	return gameState, ok
-}
-
-func putCachedGameState(input *GameState, roll []int, position tricks.Position, result *GameState) {
-	l1, ok := gameStateCache[input]
-	if !ok {
-		l1 = make(map[int]map[tricks.Position]*GameState)
-		gameStateCache[input] = l1
-	}
-
-	diceHash := dice.Hash(roll)
-	l2, ok := l1[diceHash]
-	if !ok {
-		l2 = make(map[tricks.Position]*GameState)
-		l1[diceHash] = l2
-	}
-
-	l2[position] = result
 }
