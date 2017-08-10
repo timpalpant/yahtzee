@@ -1,39 +1,44 @@
 package holds
 
 import (
-	"fmt"
+	"github.com/timpalpant/yahtzee/dice"
 )
 
-// Enumerate all possible n-vectors of bools, representing
-// all possible combinations of which dice to hold.
-func AllPossibleHolds(n int) [][]bool {
-	if n == 0 {
-		return [][]bool{nil}
+const nSides = 6
+
+var holdsCache = map[int][][]int{}
+
+func AllDistinctHolds(roll []int) [][]int {
+	h := dice.Hash(roll)
+	if result, ok := holdsCache[h]; ok {
+		return result
 	}
 
-	result := make([][]bool, 0)
-	for _, option := range []bool{true, false} {
-		for _, subHold := range AllPossibleHolds(n - 1) {
-			hold := append(subHold, option)
-			result = append(result, hold)
-		}
+	counts := make([]int, nSides)
+	for _, die := range roll {
+		counts[die-1]++
 	}
 
+	result := enumerateDistinctHolds(counts, 0)
+	holdsCache[h] = result
 	return result
 }
 
-// Given the hold mask and dice roll, return a new vector with only
-// the dice that were held.
-func Keep(roll []int, hold []bool) []int {
-	if len(roll) != len(hold) {
-		panic(fmt.Errorf("cannot apply hold %v to roll %v", hold, roll))
+func enumerateDistinctHolds(counts []int, pos int) [][]int {
+	if pos >= len(counts) {
+		return [][]int{nil}
 	}
 
-	result := make([]int, 0, len(roll))
-	for i, held := range hold {
-		if held {
-			die := roll[i]
-			result = append(result, die)
+	result := make([][]int, 0)
+	for i := 0; i <= counts[pos]; i++ {
+		toKeep := make([]int, i)
+		for j := 0; j < i; j++ {
+			toKeep[j] = pos + 1
+		}
+
+		for _, remaining := range enumerateDistinctHolds(counts, pos+1) {
+			final := append(toKeep, remaining...)
+			result = append(result, final)
 		}
 	}
 

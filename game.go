@@ -11,7 +11,7 @@ import (
 
 const nDice = 5
 
-var expectedScoreCache = map[GameState]float64{}
+var ExpectedScoreCache = map[GameState]float64{}
 
 func ExpectedScore(gs GameState) float64 {
 	remainingPositions := gs.AvailablePositions()
@@ -19,7 +19,7 @@ func ExpectedScore(gs GameState) float64 {
 		return 0.0 // Game over.
 	}
 
-	if score, ok := expectedScoreCache[gs]; ok {
+	if score, ok := ExpectedScoreCache[gs]; ok {
 		return score
 	}
 
@@ -56,8 +56,8 @@ func ExpectedScore(gs GameState) float64 {
 	elapsed := time.Since(start)
 	iterPerSec := float64(countIter) / elapsed.Seconds()
 	glog.Infof("Expected score = %.2f for %v (%d iterations, %v, %.1f iter/s)",
-		expectedScore, gs, countIter, iterPerSec)
-	expectedScoreCache[gs] = expectedScore
+		expectedScore, gs, countIter, elapsed, iterPerSec)
+	ExpectedScoreCache[gs] = expectedScore
 	return expectedScore
 }
 
@@ -76,14 +76,11 @@ func expectedValue(initialDice []int, f func(roll []int) float64) float64 {
 	return result
 }
 
-var allPossibleHolds = holds.AllPossibleHolds(nDice)
-
-// Return the max value of f over all possible holds of the 5 dice.
+// Return the max value of f over all distinct holds of the 5 dice.
 func maxValue(roll []int, f func(hold []int) float64) float64 {
 	result := 0.0
 
-	for _, hold := range allPossibleHolds {
-		kept := holds.Keep(roll, hold)
+	for _, kept := range holds.AllDistinctHolds(roll) {
 		x := f(kept)
 
 		if x > result {

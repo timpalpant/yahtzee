@@ -1,66 +1,51 @@
 package holds
 
 import (
-	"reflect"
 	"testing"
 )
 
-func TestAllPossibleHolds(t *testing.T) {
-	for i := 1; i <= 5; i++ {
-		result := AllPossibleHolds(i)
-		if len(result) != pow(2, i) {
-			t.Errorf("Expected %v results, got %v", pow(2, i), len(result))
-		}
-
-		for _, hold := range result {
-			if len(hold) != i {
-				t.Errorf("Hold should have len %v, got %v", i, len(hold))
-			}
-		}
-	}
-}
-
-func TestKeep(t *testing.T) {
+func TestAllDistinctHolds(t *testing.T) {
 	cases := []struct {
-		roll     []int
-		hold     []bool
-		expected []int
+		roll               []int
+		expectedNumResults int
 	}{
 		{
-			roll:     []int{1, 2, 3, 4, 5},
-			hold:     []bool{true, true, false, true, false},
-			expected: []int{1, 2, 4},
+			roll:               []int{1, 1, 1, 1, 1},
+			expectedNumResults: 6,
 		},
 		{
-			roll:     []int{1, 2, 3, 1, 1},
-			hold:     []bool{true, true, false, true, false},
-			expected: []int{1, 2, 1},
+			roll:               []int{1, 1, 1, 1, 2},
+			expectedNumResults: 10,
 		},
 		{
-			roll:     []int{1, 2, 3, 1, 1},
-			hold:     []bool{false, false, false, false, false},
-			expected: []int{},
+			roll:               []int{1, 1, 1, 2, 3},
+			expectedNumResults: 16,
 		},
 		{
-			roll:     []int{5, 4, 3, 2, 1},
-			hold:     []bool{true, true, true, true, true},
-			expected: []int{5, 4, 3, 2, 1},
+			roll:               []int{1, 1, 1, 2, 2},
+			expectedNumResults: 12,
 		},
 	}
 
 	for _, tc := range cases {
-		result := Keep(tc.roll, tc.hold)
-		if !reflect.DeepEqual(result, tc.expected) {
-			t.Errorf("Expected %v, got %v", tc.expected, result)
+		result := AllDistinctHolds(tc.roll)
+		if len(result) != tc.expectedNumResults {
+			t.Errorf("Expected %v results, got %v", tc.expectedNumResults, len(result))
+		}
+
+		for _, kept := range result {
+			input := make(map[int]int, len(tc.roll))
+			for _, die := range tc.roll {
+				input[die]++
+			}
+
+			for _, keep := range kept {
+				if n := input[keep]; n <= 0 {
+					t.Errorf("Kept %v not available in input %v", kept, tc.roll)
+				}
+
+				input[keep]--
+			}
 		}
 	}
-}
-
-func pow(n, k int) int {
-	result := 1
-	for i := 0; i < k; i++ {
-		result *= n
-	}
-
-	return result
 }
