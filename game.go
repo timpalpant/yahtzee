@@ -11,19 +11,21 @@ import (
 
 const nDice = 5
 
-var ExpectedScoreCache = map[GameState]float64{}
+var ExpectedScoreCache = make([]float64, 6400000)
 
 func ExpectedScore(gs GameState) float64 {
-	remainingPositions := gs.AvailablePositions()
-	if len(remainingPositions) == 0 {
+	if gs.GameOver() {
 		return 0.0 // Game over.
 	}
 
-	if score, ok := ExpectedScoreCache[gs]; ok {
+	h := gs.Hash()
+	if score := ExpectedScoreCache[h]; score != 0 {
 		return score
 	}
 
-	glog.Infof("Computing expected score for: %v", gs)
+	remainingPositions := gs.AvailablePositions()
+
+	glog.Infof("Computing expected score for: %v", gs.String())
 	start := time.Now()
 	countIter := 0
 	expectedScore := expectedValue(nil, func(roll1 []int) float64 {
@@ -34,10 +36,9 @@ func ExpectedScore(gs GameState) float64 {
 					return expectedValue(hold2, func(finalRoll []int) float64 {
 						bestPlacement := 0.0
 						for _, position := range remainingPositions {
-							positionValue := gs.ValueAt(finalRoll, position)
-							played := gs.PlayPosition(finalRoll, position)
+							played, addedValue := gs.PlayPosition(finalRoll, position)
 							expectedRemainingScore := ExpectedScore(played)
-							expectedPositionValue := float64(positionValue) + expectedRemainingScore
+							expectedPositionValue := float64(addedValue) + expectedRemainingScore
 
 							if expectedPositionValue > bestPlacement {
 								bestPlacement = expectedPositionValue
@@ -56,8 +57,8 @@ func ExpectedScore(gs GameState) float64 {
 	elapsed := time.Since(start)
 	iterPerSec := float64(countIter) / elapsed.Seconds()
 	glog.Infof("Expected score = %.2f for %v (%d iterations, %v, %.1f iter/s)",
-		expectedScore, gs, countIter, elapsed, iterPerSec)
-	ExpectedScoreCache[gs] = expectedScore
+		expectedScore, gs.String(), countIter, elapsed, iterPerSec)
+	ExpectedScoreCache[h] = expectedScore
 	return expectedScore
 }
 
@@ -66,11 +67,8 @@ func ExpectedScore(gs GameState) float64 {
 func expectedValue(initialDice []int, f func(roll []int) float64) float64 {
 	result := 0.0
 
-	for _, remainingDice := range dice.AllPossibleRolls(nDice - len(initialDice)) {
-		roll := append(initialDice, remainingDice...)
-		p := dice.Probability(roll)
-
-		result += p * f(roll)
+	for _, roll := range dice.AllPossibleRolls(initialDice) {
+		result += roll.Probability * f(roll.Dice)
 	}
 
 	return result
@@ -82,7 +80,6 @@ func maxValue(roll []int, f func(hold []int) float64) float64 {
 
 	for _, kept := range holds.AllDistinctHolds(roll) {
 		x := f(kept)
-
 		if x > result {
 			result = x
 		}

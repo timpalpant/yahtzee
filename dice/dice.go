@@ -1,6 +1,9 @@
 package dice
 
-const nSides = 6
+const (
+	nDice  = 5
+	nSides = 6
+)
 
 // Hash roll into an integer by relying on the fact
 // that each die is in the range 1-nSides, with nSides < 10.
@@ -14,18 +17,36 @@ func Hash(roll []int) int {
 	return result
 }
 
-var rollsCache = map[int][][]int{}
+type Roll struct {
+	Dice        []int
+	Probability float64
+}
+
+var rollsCache = map[int][]Roll{}
 
 // Return all possible (distinct) rolls of N 6-sided dice.
 // Returns an (n+6-1 choose n) slice.
-func AllPossibleRolls(n int) [][]int {
-	if result, ok := rollsCache[n]; ok {
+func AllPossibleRolls(input []int) []Roll {
+	h := Hash(input)
+	if result, ok := rollsCache[h]; ok {
 		return result
 	}
 
-	result := enumerateRolls(n, 1, nSides)
+	n := nDice - len(input)
+	rolls := enumerateRolls(n, 1, nSides)
+	result := make([]Roll, len(rolls))
+	for i, roll := range rolls {
+		final := make([]int, 0, nDice)
+		final = append(final, input...)
+		final = append(final, roll...)
 
-	rollsCache[n] = result
+		result[i] = Roll{
+			Dice:        final,
+			Probability: Probability(roll),
+		}
+	}
+
+	rollsCache[h] = result
 	return result
 }
 
@@ -45,13 +66,13 @@ func enumerateRolls(n, j, k int) [][]int {
 	return result
 }
 
-var pCache = map[int]float64{}
+var pCache = make([]float64, pow(10, nSides))
 
 // Return the probability of the given roll amongst
 // all possible rolls of len(roll) dice.
 func Probability(roll []int) float64 {
 	h := Hash(roll)
-	if p, ok := pCache[h]; ok {
+	if p := pCache[h]; p != 0 {
 		return p
 	}
 

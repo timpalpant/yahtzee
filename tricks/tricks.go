@@ -64,16 +64,16 @@ func IsFullHouse(dice []int) bool {
 	return true
 }
 
-// Either 1,2,3,4; 2,3,4,5; or 3,4,5,6.
 func hasNInARow(dice []int, n int) bool {
-	bits := make([]bool, nSides)
+	var haveDie int
 	for _, die := range dice {
-		bits[die-1] = true
+		haveDie |= (1 << uint(die))
 	}
 
 	nInARow := 0
-	for _, bit := range bits {
-		if bit {
+	for i := uint(1); i <= nSides; i++ {
+		bit := haveDie & (1 << i)
+		if bit != 0 {
 			nInARow++
 		} else {
 			nInARow = 0
@@ -81,6 +81,10 @@ func hasNInARow(dice []int, n int) bool {
 
 		if nInARow >= n {
 			return true
+		} else if n-nInARow > nSides-int(i) {
+			// Not enough remaining dice that we could possibly
+			// have n in a row.
+			return false
 		}
 	}
 

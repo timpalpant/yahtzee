@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/gob"
+	"bufio"
 	"flag"
 	"fmt"
 	"net/http"
@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	output := flag.String("output", "scores.gob", "Output file")
+	output := flag.String("output", "scores.txt", "Output file")
 	flag.Parse()
 
 	go func() {
@@ -30,6 +30,14 @@ func main() {
 		glog.Fatal(err)
 	}
 	defer f.Close()
-	enc := gob.NewEncoder(f)
-	enc.Encode(yahtzee.ExpectedScoreCache)
+
+	buf := bufio.NewWriter(f)
+	defer buf.Flush()
+	for gameHash, expectedScore := range yahtzee.ExpectedScoreCache {
+		if expectedScore == 0 {
+			continue
+		}
+
+		fmt.Fprintln(buf, gameHash, expectedScore)
+	}
 }
