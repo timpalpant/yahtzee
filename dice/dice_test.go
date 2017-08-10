@@ -15,10 +15,9 @@ func nRolls(n, k int) int {
 }
 
 func TestAllPossibleRolls(t *testing.T) {
-	k := 6 // Six-sided dice.
 	for n := 1; n <= 5; n++ {
-		rolls := AllPossibleRolls(n, k)
-		expected := nRolls(n, k)
+		rolls := AllPossibleRolls(n)
+		expected := nRolls(n, 6)
 		if len(rolls) != expected {
 			t.Errorf("Expected %d rolls, got %d", expected, len(rolls))
 		}
@@ -36,31 +35,27 @@ func TestAllPossibleRolls(t *testing.T) {
 func TestProbability(t *testing.T) {
 	cases := []struct {
 		roll     []int
-		k        int
 		expected float64
 	}{
 		{
 			roll:     []int{1, 1, 1, 1, 1},
-			k:        6,
 			expected: 1.0 / math.Pow(6, 5),
 		},
 		{
 			roll:     []int{1, 1, 1, 1, 2},
-			k:        6,
 			expected: 5.0 / math.Pow(6, 5),
 		},
 		{
-			roll:     []int{1, 2, 3, 4, 5},
-			k:        6,
+			roll:     []int{1, 2, 3, 4, 6},
 			expected: float64(factorial(5)) / math.Pow(6, 5),
 		},
 	}
 
 	for _, tc := range cases {
-		result := Probability(tc.roll, tc.k)
+		result := Probability(tc.roll)
 		if result != tc.expected {
-			t.Errorf("Roll: %v, k: %v, got: %v wanted %v",
-				tc.roll, tc.k, result, tc.expected)
+			t.Errorf("Roll: %v, got: %v wanted %v",
+				tc.roll, result, tc.expected)
 		}
 	}
 }

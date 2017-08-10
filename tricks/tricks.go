@@ -1,47 +1,38 @@
 package tricks
 
-import (
-	"sort"
-)
+const nSides = 6
 
 type Position int
 
 const (
-	Ones Position = 0
-	Twos
-	Threes
-	Fours
-	Fives
-	Sixes
-	ThreeOfAKind
-	FourOfAKind
-	FullHouse
-	SmallStraight
-	LargeStraight
-	Chance
-	Yahtzee
+	Ones          Position = 0
+	Twos                   = 1
+	Threes                 = 2
+	Fours                  = 3
+	Fives                  = 4
+	Sixes                  = 5
+	ThreeOfAKind           = 6
+	FourOfAKind            = 7
+	FullHouse              = 8
+	SmallStraight          = 9
+	LargeStraight          = 10
+	Chance                 = 11
+	Yahtzee                = 12
 )
 
 func (p Position) IsUpperHalf() bool {
-	return p < 6
+	return p < nSides
 }
 
 func (p Position) IsLowerHalf() bool {
-	return p >= 6
-}
-
-func histogram(values []int) map[int]int {
-	result := make(map[int]int, 6)
-	for _, value := range values {
-		result[value]++
-	}
-
-	return result
+	return p >= nSides
 }
 
 func isNOfAKind(dice []int, n int) bool {
-	for _, count := range histogram(dice) {
-		if count >= n {
+	counts := make([]int, nSides)
+	for _, die := range dice {
+		counts[die-1]++
+		if counts[die-1] >= n {
 			return true
 		}
 	}
@@ -58,13 +49,14 @@ func IsFourOfAKind(dice []int) bool {
 }
 
 func IsFullHouse(dice []int) bool {
-	h := histogram(dice)
-	if len(h) != 2 {
-		return false
+	counts := make([]int, nSides)
+	for _, die := range dice {
+		counts[die-1]++
+
 	}
 
-	for _, count := range h {
-		if count != 2 && count != 3 {
+	for _, count := range counts {
+		if count != 0 && count != 2 && count != 3 {
 			return false
 		}
 	}
@@ -73,49 +65,42 @@ func IsFullHouse(dice []int) bool {
 }
 
 // Either 1,2,3,4; 2,3,4,5; or 3,4,5,6.
-func IsSmallStraight(dice []int) bool {
-	case1 := map[int]struct{}{
-		1: struct{}{},
-		2: struct{}{},
-		3: struct{}{},
-		4: struct{}{},
-	}
-
-	case2 := map[int]struct{}{
-		2: struct{}{},
-		3: struct{}{},
-		4: struct{}{},
-		5: struct{}{},
-	}
-
-	case3 := map[int]struct{}{
-		3: struct{}{},
-		4: struct{}{},
-		5: struct{}{},
-		6: struct{}{},
-	}
-
+func hasNInARow(dice []int, n int) bool {
+	bits := make([]bool, nSides)
 	for _, die := range dice {
-		delete(case1, die)
-		delete(case2, die)
-		delete(case3, die)
+		bits[die-1] = true
 	}
 
-	return len(case1) == 0 || len(case2) == 0 || len(case3) == 0
+	nInARow := 0
+	for _, bit := range bits {
+		if bit {
+			nInARow++
+		} else {
+			nInARow = 0
+		}
+
+		if nInARow >= n {
+			return true
+		}
+	}
+
+	return false
+}
+
+func IsSmallStraight(dice []int) bool {
+	return hasNInARow(dice, 4)
 }
 
 func IsLargeStraight(dice []int) bool {
-	sort.Ints(dice)
-	first := dice[0]
-	for i, value := range dice {
-		if value != first+i {
+	return hasNInARow(dice, 5)
+}
+
+func IsYahtzee(dice []int) bool {
+	for _, die := range dice[1:] {
+		if die != dice[0] {
 			return false
 		}
 	}
 
 	return true
-}
-
-func IsYahtzee(dice []int) bool {
-	return isNOfAKind(dice, 5)
 }

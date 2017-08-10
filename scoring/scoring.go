@@ -6,7 +6,7 @@ import (
 
 func PositionScore(dice []int, position tricks.Position) int {
 	if position.IsUpperHalf() {
-		dieFace := position + 1
+		dieFace := int(position + 1)
 		return dieFace * Count(dice, dieFace)
 	}
 
@@ -14,11 +14,11 @@ func PositionScore(dice []int, position tricks.Position) int {
 	switch position {
 	case tricks.ThreeOfAKind:
 		if tricks.IsThreeOfAKind(dice) {
-			return scoring.Sum(dice)
+			return Sum(dice)
 		}
 	case tricks.FourOfAKind:
 		if tricks.IsFourOfAKind(dice) {
-			return scoring.Sum(dice)
+			return Sum(dice)
 		}
 	case tricks.FullHouse:
 		if tricks.IsFullHouse(dice) {
@@ -33,7 +33,7 @@ func PositionScore(dice []int, position tricks.Position) int {
 			return 40
 		}
 	case tricks.Chance:
-		return scoring.Sum(dice)
+		return Sum(dice)
 	case tricks.Yahtzee:
 		if tricks.IsYahtzee(dice) {
 			return 50
