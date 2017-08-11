@@ -12,6 +12,9 @@
 #include <utility>
 #include <vector>
 
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+
 using namespace std;
 
 const int kUpperHalfBonusThreshold = 63;
@@ -36,7 +39,7 @@ int pow(int n, int k) {
 //
 // This means that all rolls of five dice are represented by
 // an integer <= 500000, and permutations are considered equivalent.
-typedef int Roll;
+typedef uint Roll;
 
 const int kNDice = 5;
 const int kNSides = 6;
@@ -130,7 +133,7 @@ int count_dice(Roll roll, int die) {
 //      half score is capped at 63.
 //
 // This means that all games are represented by an integer < 6.4mm.
-typedef int GameState;
+typedef uint GameState;
 
 const int kMaxGame = 6400000;
 const int kNumBoxes = 13;
@@ -304,7 +307,7 @@ vector<Roll> enumerate_rolls(Roll roll, int die) {
 }
 
 array<vector<Roll>, kMaxRoll> all_rolls() {
-    cerr << "Computing rolls table" << endl;
+    LOG(INFO) << "Computing rolls table";
     array<vector<Roll>, kMaxRoll> result;
     
     int count = 0;
@@ -317,7 +320,7 @@ array<vector<Roll>, kMaxRoll> all_rolls() {
         count++;
     }
     
-    cerr << "Enumerated " << count << " rolls" << endl;
+    LOG(INFO) << "Enumerated " << count << " rolls";
     return result;
 }
 
@@ -341,7 +344,7 @@ vector<Roll> enumerate_holds(Roll roll, int die) {
 }
 
 array<vector<Roll>, kMaxRoll> all_holds() {
-    cerr << "Computing holds table" << endl;
+    LOG(INFO) << "Computing holds table";
     array<vector<Roll>, kMaxRoll> result;
     
     int count = 0;
@@ -354,7 +357,7 @@ array<vector<Roll>, kMaxRoll> all_holds() {
         count++;
     }
     
-    cerr << "Enumerated " << count << " holds" << endl;
+    LOG(INFO) << "Enumerated " << count << " holds";
     return result;
 }
 
@@ -385,7 +388,7 @@ double compute_probability(Roll roll) {
 }
 
 array<double, kMaxRoll> all_probabilities() {
-    cerr << "Computing roll probabilities table" << endl;
+    LOG(INFO) << "Computing roll probabilities table";
     array<double, kMaxRoll> result;
     
     int count = 0;
@@ -398,7 +401,7 @@ array<double, kMaxRoll> all_probabilities() {
         count++;
     }
     
-    cerr << "Enumerated " << count << " roll probabilities" << endl;
+    LOG(INFO) << "Enumerated " << count << " roll probabilities";
     return result;
 }
 
@@ -406,7 +409,6 @@ static const array<vector<Roll>, kMaxRoll> rolls = all_rolls();
 static const array<vector<Roll>, kMaxRoll> holds = all_holds();
 static const array<double, kMaxRoll> probability = all_probabilities();
 
-double all_time_high = 0.0;
 int n_games_computed = 0;
 
 double compute_expected_score(vector<double>& cache, GameState game) {
@@ -415,14 +417,15 @@ double compute_expected_score(vector<double>& cache, GameState game) {
     }
     
     double expected_score = cache[game];
-    if (expected_score != 0) {
+    if (expected_score != -1) {
         return expected_score;
     }
-    
+   
+    VLOG(1) << "Computing expected score for game " << game;
     auto remaining_boxes = available_boxes(game);
-    
-    vector<double> roll2_cache(kMaxRoll);
-    vector<double> roll3_cache(kMaxRoll);
+    int count_iter = 0;
+    vector<double> roll2_cache(kMaxRoll, -1);
+    vector<double> roll3_cache(kMaxRoll, -1);
     
     for (Roll roll1 : rolls[0]) {
         double max_value1 = 0.0;
@@ -430,12 +433,12 @@ double compute_expected_score(vector<double>& cache, GameState game) {
             double e_value2 = 0;
             for (Roll roll2 : rolls[held1]) {
                 double max_value2 = roll2_cache[roll2];
-                if (max_value2 == 0) {
+                if (max_value2 == -1) {
                     for (Roll held2 : holds[roll2]) {
                         double e_value3 = 0.0;
                         for (Roll roll3 : rolls[held2]) {
                             double max_value3 = roll3_cache[roll3];
-                            if (max_value3 == 0) {
+                            if (max_value3 == -1) {
                                 for (Box box : remaining_boxes) {
                                     pair<GameState, int> result = fill_box(game, roll3, box);
                                     GameState new_game = result.first;
@@ -447,6 +450,8 @@ double compute_expected_score(vector<double>& cache, GameState game) {
                                     if (expected_position_value > max_value3) {
                                         max_value3 = expected_position_value;
                                     }
+
+                                    count_iter++;
                                 }
                             }
                             
@@ -472,32 +477,32 @@ double compute_expected_score(vector<double>& cache, GameState game) {
         expected_score += probability[roll1] * max_value1;
     }
     
-    if (expected_score > all_time_high) {
-        cerr << "New all-time high: " << expected_score << "\n";
-        all_time_high = expected_score;
-    }
-    
+    VLOG(1) << "Expected score for game " << game << " = " << expected_score
+            << " (" << count_iter << " iterations)";
     n_games_computed++;
     if (n_games_computed % 10000 == 0) {
-        cerr << "Computed " << n_games_computed << " games\n";
+        LOG(INFO) << "Computed " << n_games_computed << " games\n";
     }
     cache[game] = expected_score;
     return expected_score;
 }
 
-int main(int argc, const char * argv[]) {
-    cerr << "Computing expected score table" << endl;
-    vector<double> cache(kMaxGame);
+int main(int argc, char * argv[]) {
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    google::InitGoogleLogging(argv[0]);
+
+    LOG(INFO) << "Computing expected score table" << endl;
+    vector<double> cache(kMaxGame, -1);
     GameState game = 0;
     double result = compute_expected_score(cache, game);
-    cerr << "Expected score: " << result << endl;
+    LOG(INFO) << "Expected score: " << result << endl;
     
     
     string output_filename = "scores.txt";
-    cerr << "Saving cache table to: " << output_filename << endl;
+    LOG(INFO) << "Saving cache table to: " << output_filename << endl;
     ofstream output(output_filename);
     if (!output.is_open()) {
-        cerr << "Error opening output file!" << endl;
+        LOG(ERROR) << "Error opening output file!" << endl;
         return 1;
     }
     
