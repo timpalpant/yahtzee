@@ -1,9 +1,16 @@
 package dice
 
 const (
-	nDice  = 5
-	nSides = 6
+	NDice  = 5
+	NSides = 6
+
+	MaxHash = 10 * 10 * 10 * 10 * 10 * 10
 )
+
+type Roll struct {
+	Dice        []int
+	Probability float64
+}
 
 // Hash roll into an integer by relying on the fact
 // that each die is in the range 1-nSides, with nSides < 10.
@@ -17,11 +24,6 @@ func Hash(roll []int) int {
 	return result
 }
 
-type Roll struct {
-	Dice        []int
-	Probability float64
-}
-
 var rollsCache = map[int][]Roll{}
 
 // Return all possible (distinct) rolls of N 6-sided dice.
@@ -32,11 +34,11 @@ func AllPossibleRolls(input []int) []Roll {
 		return result
 	}
 
-	n := nDice - len(input)
-	rolls := enumerateRolls(n, 1, nSides)
+	n := NDice - len(input)
+	rolls := enumerateRolls(n, 1, NSides)
 	result := make([]Roll, len(rolls))
 	for i, roll := range rolls {
-		final := make([]int, 0, nDice)
+		final := make([]int, 0, NDice)
 		final = append(final, input...)
 		final = append(final, roll...)
 
@@ -66,7 +68,7 @@ func enumerateRolls(n, j, k int) [][]int {
 	return result
 }
 
-var pCache = make([]float64, pow(10, nSides))
+var pCache = make([]float64, MaxHash)
 
 // Return the probability of the given roll amongst
 // all possible rolls of len(roll) dice.
@@ -76,13 +78,13 @@ func Probability(roll []int) float64 {
 		return p
 	}
 
-	counts := make([]int, nSides)
+	counts := make([]int, NSides)
 	for _, die := range roll {
 		counts[die-1]++
 	}
 
 	n := multinomial(len(roll), counts)
-	d := pow(nSides, len(roll))
+	d := pow(NSides, len(roll))
 	p := float64(n) / float64(d)
 
 	pCache[h] = p

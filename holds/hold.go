@@ -4,17 +4,15 @@ import (
 	"github.com/timpalpant/yahtzee/dice"
 )
 
-const nSides = 6
-
-var holdsCache = map[int][][]int{}
+var holdsCache = make([][][]int, dice.MaxHash)
 
 func AllDistinctHolds(roll []int) [][]int {
 	h := dice.Hash(roll)
-	if result, ok := holdsCache[h]; ok {
+	if result := holdsCache[h]; len(result) > 0 {
 		return result
 	}
 
-	counts := make([]int, nSides)
+	counts := make([]int, dice.NSides)
 	for _, die := range roll {
 		counts[die-1]++
 	}

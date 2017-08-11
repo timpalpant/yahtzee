@@ -11,7 +11,7 @@ import (
 
 const nDice = 5
 
-var ExpectedScoreCache = make([]float64, 6400000)
+var ExpectedScoreCache = make([]float64, maxHash)
 
 func ExpectedScore(gs GameState) float64 {
 	if gs.GameOver() {
@@ -25,15 +25,28 @@ func ExpectedScore(gs GameState) float64 {
 
 	remainingPositions := gs.AvailablePositions()
 
+	l1Cache := make([]float64, dice.MaxHash)
+	l2Cache := make([]float64, dice.MaxHash)
+
 	glog.Infof("Computing expected score for: %v", gs.String())
 	start := time.Now()
 	countIter := 0
 	expectedScore := expectedValue(nil, func(roll1 []int) float64 {
-		glog.Infof("Roll 1: %v", roll1)
 		return maxValue(roll1, func(hold1 []int) float64 {
 			return expectedValue(hold1, func(roll2 []int) float64 {
-				return maxValue(roll2, func(hold2 []int) float64 {
+
+				h := dice.Hash(roll2)
+				if result := l1Cache[h]; result != 0 {
+					return result
+				}
+
+				result := maxValue(roll2, func(hold2 []int) float64 {
 					return expectedValue(hold2, func(finalRoll []int) float64 {
+						h := dice.Hash(finalRoll)
+						if result := l2Cache[h]; result != 0 {
+							return result
+						}
+
 						bestPlacement := 0.0
 						for _, position := range remainingPositions {
 							played, addedValue := gs.PlayPosition(finalRoll, position)
@@ -47,9 +60,13 @@ func ExpectedScore(gs GameState) float64 {
 							countIter++
 						}
 
+						l2Cache[h] = bestPlacement
 						return bestPlacement
 					})
 				})
+
+				l1Cache[h] = result
+				return result
 			})
 		})
 	})

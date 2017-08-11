@@ -12,6 +12,7 @@ const (
 	upperHalfBonus          = 35
 	yahtzeeBonus            = 100
 	gameOver                = 8191
+	maxHash                 = 6400000
 )
 
 // GameState represents the current state of a game of Yahtzee.
