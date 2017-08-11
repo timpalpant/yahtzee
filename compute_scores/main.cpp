@@ -127,7 +127,7 @@ int count_dice(Roll roll, int die) {
 //   2. Bit 13 represents whether you are eligible for the bonus,
 //      meaning that you have previously filled the Yahtzee for points.
 //      Therefore bit 13 can only be set if bit 12 is also set.
-//   3. High order bits represent 100,000 x the upper half score in
+//   3. Bits 14-19 represent the upper half score in
 //      the range [0, 63]. Since for all upper half scores >= 63 you
 //      get the upper half bonus, they are equivalent and the upper
 //      half score is capped at 63.
@@ -140,8 +140,6 @@ const int kNumBoxes = 13;
 const int kUpperHalf = 6;
 const int kBoxesMask = (1 << kNumBoxes) - 1;
 const int kBonusBit = 13;
-const int kUpperHalfScoreMask = ~((1 << 14) - 1);
-const int kUpperHalfScoreMultiplier = 100000;
 
 enum Box {
     ones = 0,
@@ -178,7 +176,7 @@ bool bonus_eligible(GameState game) {
 }
 
 int upper_half_score(GameState game) {
-    return (game & kUpperHalfScoreMask) / kUpperHalfScoreMultiplier;
+    return game >> (kNumBoxes+1);
 }
 
 vector<Box> available_boxes(GameState game) {
@@ -247,19 +245,25 @@ pair<GameState, int> fill_box(GameState game, Roll roll, Box box) {
         new_game |= (1 << kBonusBit);
     }
     
-    if (is_upper_half(box) && upper_half_score(game) < kUpperHalfBonusThreshold) {
-        new_game += kUpperHalfScoreMultiplier * value;
-        
+    int prev_uhs = upper_half_score(game);
+    if (value != 0 && is_upper_half(box) && prev_uhs < kUpperHalfBonusThreshold) {
+        new_game += (value << (kNumBoxes+1));
+
         // Cap upper half score at bonus threshold since all values > threshold
         // are equivalent in terms of getting the bonus.
         if (upper_half_score(new_game) >= kUpperHalfBonusThreshold) {
-            int excess = upper_half_score(new_game) - kUpperHalfBonusThreshold;
-            new_game -= kUpperHalfScoreMultiplier * excess;
+            int uhs_mask = ~((1 << (kNumBoxes+1)) - 1);
+            new_game &= uhs_mask;  // Zero it out.
+            new_game += kUpperHalfBonusThreshold << (kNumBoxes+1);
             value += kUpperHalfBonus;
         }
+
+        VLOG(2) << "Previous upper half score: " << upper_half_score(game)
+                << ", new: " << upper_half_score(new_game) << " (+"
+                << value << ")";
     }
     
-    if (value != 0 && bonus_eligible(game) && is_yahtzee(roll)) {
+    if (bonus_eligible(game) && is_yahtzee(roll)) {
         // Second Yahtzee bonus.
         value += kYahtzeeBonus;
         
@@ -413,6 +417,7 @@ int n_games_computed = 0;
 
 double compute_expected_score(vector<double>& cache, GameState game) {
     if (game_over(game)) {
+        VLOG(3) << "Game over: " << game;
         return 0.0;
     }
     
@@ -508,7 +513,7 @@ int main(int argc, char * argv[]) {
     
     for (int game = 0; game < kMaxGame; game++) {
         double expected_score = cache[game];
-        if (expected_score != 0) {
+        if (expected_score != -1) {
             output << game << "\t" << expected_score << endl;
         }
     }
