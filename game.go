@@ -1,106 +1,122 @@
 package yahtzee
 
 import (
-	"time"
-
-	"github.com/golang/glog"
-
-	"github.com/timpalpant/yahtzee/dice"
-	"github.com/timpalpant/yahtzee/holds"
+	"fmt"
 )
 
-const nDice = 5
+const (
+	MaxGame = 6400000
 
-var ExpectedScoreCache = make([]float64, maxHash)
+	UpperHalfBonusThreshold = 63
+	UpperHalfBonus          = 35
+	YahtzeeBonus            = 100
+)
 
-func ExpectedScore(gs GameState) float64 {
-	if gs.GameOver() {
-		return 0.0 // Game over.
-	}
+const (
+	bonusBit  uint = uint(Yahtzee + 1)
+	shiftUHS  uint = bonusBit + 1
+	boxesMask      = (1 << bonusBit) - 1
+)
 
-	h := gs.Hash()
-	if score := ExpectedScoreCache[h]; score != 0 {
-		return score
-	}
+// Each distinct game is represented by an integer as follows:
+//
+//   1. The lowest 13 bits represent whether a box has been filled.
+//      Bits 0-5 are the Upper half (ones, twos, ... sixes).
+//      Bits 6-12 are the Lower half (three of a kind ... yahtzee)
+//   2. Bit 13 represents whether you are eligible for the bonus,
+//      meaning that you have previously filled the Yahtzee for points.
+//      Therefore bit 13 can only be set if bit 12 is also set.
+//   3. Bits 14-19 represent the upper half score in
+//      the range [0, 63]. Since for all upper half scores >= 63 you
+//      get the upper half bonus, they are equivalent and the upper
+//      half score is capped at 63.
+//
+// This means that all games are represented by an integer < 6.4mm (MaxGame).
+type GameState uint
 
-	remainingPositions := gs.AvailablePositions()
-
-	l1Cache := make([]float64, dice.MaxHash)
-	l2Cache := make([]float64, dice.MaxHash)
-
-	glog.Infof("Computing expected score for: %v", gs.String())
-	start := time.Now()
-	countIter := 0
-	expectedScore := expectedValue(nil, func(roll1 []int) float64 {
-		return maxValue(roll1, func(hold1 []int) float64 {
-			return expectedValue(hold1, func(roll2 []int) float64 {
-
-				h := dice.Hash(roll2)
-				if result := l1Cache[h]; result != 0 {
-					return result
-				}
-
-				result := maxValue(roll2, func(hold2 []int) float64 {
-					return expectedValue(hold2, func(finalRoll []int) float64 {
-						h := dice.Hash(finalRoll)
-						if result := l2Cache[h]; result != 0 {
-							return result
-						}
-
-						bestPlacement := 0.0
-						for _, position := range remainingPositions {
-							played, addedValue := gs.PlayPosition(finalRoll, position)
-							expectedRemainingScore := ExpectedScore(played)
-							expectedPositionValue := float64(addedValue) + expectedRemainingScore
-
-							if expectedPositionValue > bestPlacement {
-								bestPlacement = expectedPositionValue
-							}
-
-							countIter++
-						}
-
-						l2Cache[h] = bestPlacement
-						return bestPlacement
-					})
-				})
-
-				l1Cache[h] = result
-				return result
-			})
-		})
-	})
-
-	elapsed := time.Since(start)
-	iterPerSec := float64(countIter) / elapsed.Seconds()
-	glog.Infof("Expected score = %.2f for %v (%d iterations, %v, %.1f iter/s)",
-		expectedScore, gs.String(), countIter, elapsed, iterPerSec)
-	ExpectedScoreCache[h] = expectedScore
-	return expectedScore
+func NewGame() GameState {
+	return GameState(0)
 }
 
-// Return the expected value of f over all rolls of 5 dice, constructed starting
-// with the given initial dice (which may be nil).
-func expectedValue(initialDice []int, f func(roll []int) float64) float64 {
-	result := 0.0
+func (game GameState) GameOver() bool {
+	return (game & boxesMask) == boxesMask
+}
 
-	for _, roll := range dice.AllPossibleRolls(initialDice) {
-		result += roll.Probability * f(roll.Dice)
+func (game GameState) BoxFilled(b Box) bool {
+	return (game & (1 << b)) != 0
+}
+
+func (game GameState) BonusEligible() bool {
+	return (game & (1 << bonusBit)) != 0
+}
+
+func (game GameState) UpperHalfScore() int {
+	return int(game >> bonusBit)
+}
+
+func (game GameState) AvailableBoxes() []Box {
+	result := make([]Box, 0)
+	for box := Ones; box <= Yahtzee; box++ {
+		if !game.BoxFilled(box) {
+			result = append(result, box)
+		}
 	}
-
 	return result
 }
 
-// Return the max value of f over all distinct holds of the 5 dice.
-func maxValue(roll []int, f func(hold []int) float64) float64 {
-	result := 0.0
+func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
+	newGame := game
+	value := box.Score(roll)
 
-	for _, kept := range holds.AllDistinctHolds(roll) {
-		x := f(kept)
-		if x > result {
-			result = x
+	newGame |= (1 << box)
+	if box == Yahtzee && value != 0 {
+		newGame |= (1 << bonusBit)
+	}
+
+	prevUHS := game.UpperHalfScore()
+	if value != 0 && box.IsUpperHalf() && prevUHS < UpperHalfBonusThreshold {
+		newGame += GameState(value << shiftUHS)
+
+		// Cap upper half score at bonus threshold since all values > threshold
+		// are equivalent in terms of getting the bonus.
+		if prevUHS+value > UpperHalfBonusThreshold {
+			newGame -= GameState((prevUHS + value - UpperHalfBonusThreshold) << shiftUHS)
+			value += UpperHalfBonus
 		}
 	}
 
-	return result
+	if game.BonusEligible() && IsYahtzee(roll) {
+		value += YahtzeeBonus
+
+		// Joker rule: Roll can be played in any box for points,
+		// if the corresponding upper half box is already filled.
+		nativeBox := nativeUpperHalfBox(roll)
+		if game.BoxFilled(nativeBox) {
+			switch box {
+			case FullHouse:
+				value += 25
+			case SmallStraight:
+				value += 30
+			case LargeStraight:
+				value += 40
+			}
+		}
+	}
+
+	return newGame, value
+}
+
+func (game GameState) String() string {
+	return fmt.Sprintf("{Available: %v, BonusEligible: %v, UpperHalf: %v}",
+		game.AvailableBoxes(), game.BonusEligible(), game.UpperHalfScore())
+}
+
+func nativeUpperHalfBox(yahtzeeRoll Roll) Box {
+	for box, count := range yahtzeeRoll.Counts() {
+		if count > 0 {
+			return Box(box)
+		}
+	}
+
+	panic(fmt.Errorf("error trying to get UH box for: %s", yahtzeeRoll))
 }
