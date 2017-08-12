@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	MaxGame = 6400000
+	MaxGame  = 6400000
+	NumTurns = int(Yahtzee + 1)
 
 	UpperHalfBonusThreshold = 63
 	UpperHalfBonus          = 35
@@ -51,7 +52,7 @@ func (game GameState) BonusEligible() bool {
 }
 
 func (game GameState) UpperHalfScore() int {
-	return int(game >> bonusBit)
+	return int(game >> shiftUHS)
 }
 
 func (game GameState) AvailableBoxes() []Box {
@@ -65,6 +66,12 @@ func (game GameState) AvailableBoxes() []Box {
 }
 
 func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
+	if game.BoxFilled(box) {
+		panic(fmt.Errorf("trying to play already filled box %v", box))
+	} else if roll.NumDice() != NDice {
+		panic(fmt.Errorf("trying to play incomplete roll with %v dice", roll.NumDice()))
+	}
+
 	newGame := game
 	value := box.Score(roll)
 
@@ -79,7 +86,7 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 
 		// Cap upper half score at bonus threshold since all values > threshold
 		// are equivalent in terms of getting the bonus.
-		if prevUHS+value > UpperHalfBonusThreshold {
+		if prevUHS+value >= UpperHalfBonusThreshold {
 			newGame -= GameState((prevUHS + value - UpperHalfBonusThreshold) << shiftUHS)
 			value += UpperHalfBonus
 		}
@@ -107,8 +114,8 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 }
 
 func (game GameState) String() string {
-	return fmt.Sprintf("{Available: %v, BonusEligible: %v, UpperHalf: %v}",
-		game.AvailableBoxes(), game.BonusEligible(), game.UpperHalfScore())
+	return fmt.Sprintf("{ID: %d, Available: %v, BonusEligible: %v, UpperHalf: %v}",
+		game, game.AvailableBoxes(), game.BonusEligible(), game.UpperHalfScore())
 }
 
 func nativeUpperHalfBox(yahtzeeRoll Roll) Box {

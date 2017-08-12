@@ -113,6 +113,10 @@ func (r Roll) HasNInARow(n int) bool {
 }
 
 func (r Roll) IsFullHouse() bool {
+	if r == 0 {
+		return false
+	}
+
 	for ; r > 0; r /= 10 {
 		count := int(r % 10)
 		if count != 0 && count != 2 && count != 3 {
@@ -202,7 +206,10 @@ func enumerateHolds(roll Roll, die int) []Roll {
 
 	result := make([]Roll, 0)
 	dieValue := pow(10, die-1)
-	for i := 0; i <= roll.CountOf(die); i++ {
+	// Enumerate in order of most held -> least held so that
+	// we can compute expected values over the held multiset efficiently.
+	// See Pawlewicz, Appendix B.1.
+	for i := roll.CountOf(die); i >= 0; i-- {
 		kept := Roll(i * dieValue)
 		for _, remaining := range enumerateHolds(roll, die+1) {
 			finalRoll := kept + remaining

@@ -34,19 +34,23 @@ func (b Box) Score(roll Roll) int {
 
 	switch b {
 	case ThreeOfAKind:
-		return roll.SumOfDice()
+		if roll.HasNOfAKind(3) {
+			return roll.SumOfDice()
+		}
 	case FourOfAKind:
-		return roll.SumOfDice()
+		if roll.HasNOfAKind(4) {
+			return roll.SumOfDice()
+		}
 	case FullHouse:
-		if IsFullHouse(roll) {
+		if roll.IsFullHouse() {
 			return 25
 		}
 	case SmallStraight:
-		if IsSmallStraight(roll) {
+		if roll.HasNInARow(4) {
 			return 30
 		}
 	case LargeStraight:
-		if IsLargeStraight(roll) {
+		if roll.HasNInARow(5) {
 			return 40
 		}
 	case Chance:
@@ -58,26 +62,6 @@ func (b Box) Score(roll Roll) int {
 	}
 
 	return 0
-}
-
-func IsThreeOfAKind(roll Roll) bool {
-	return roll.HasNOfAKind(3)
-}
-
-func IsFourOfAKind(roll Roll) bool {
-	return roll.HasNOfAKind(4)
-}
-
-func IsFullHouse(roll Roll) bool {
-	return roll.IsFullHouse()
-}
-
-func IsSmallStraight(roll Roll) bool {
-	return roll.HasNInARow(4)
-}
-
-func IsLargeStraight(roll Roll) bool {
-	return roll.HasNInARow(5)
 }
 
 func IsYahtzee(roll Roll) bool {
