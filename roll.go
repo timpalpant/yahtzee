@@ -49,6 +49,18 @@ func (r Roll) Counts() []int {
 	return counts
 }
 
+func (r Roll) Smallest() int {
+	for side := 1; side <= NSides; side++ {
+		count := int(r % 10)
+		if count > 0 {
+			return side
+		}
+		r /= 10
+	}
+
+	return -1
+}
+
 // CountOf returns the number of a particular side in this roll.
 func (r Roll) CountOf(side int) int {
 	return (int(r) / pow(10, side-1)) % 10

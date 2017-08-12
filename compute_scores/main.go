@@ -17,8 +17,8 @@ const unset = -1
 
 var (
 	nGamesComputed = 0
-	roll2Caches    = makeCachePool(yahtzee.NumTurns, yahtzee.MaxRoll)
-	roll3Caches    = makeCachePool(yahtzee.NumTurns, yahtzee.MaxRoll)
+	roll2Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
+	roll3Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
 )
 
 func makeCache(size int) []float64 {
@@ -27,19 +27,19 @@ func makeCache(size int) []float64 {
 	return result
 }
 
-func makeCachePool(size1, size2 int) [][]float64 {
-	result := make([][]float64, size)
-	for i := range result {
-		result[i] = makeCache(size2)
-	}
-	return result
-}
-
 func resetCache(c []float64) []float64 {
 	for i := range c {
 		c[i] = unset
 	}
 	return c
+}
+
+func make2DCache(size1, size2 int) [][]float64 {
+	result := make([][]float64, size1)
+	for i := range result {
+		result[i] = makeCache(size2)
+	}
+	return result
 }
 
 func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {

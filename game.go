@@ -119,11 +119,6 @@ func (game GameState) String() string {
 }
 
 func nativeUpperHalfBox(yahtzeeRoll Roll) Box {
-	for box, count := range yahtzeeRoll.Counts() {
-		if count > 0 {
-			return Box(box)
-		}
-	}
-
-	panic(fmt.Errorf("error trying to get UH box for: %s", yahtzeeRoll))
+	side := yahtzeeRoll.Smallest()
+	return Box(side - 1)
 }
