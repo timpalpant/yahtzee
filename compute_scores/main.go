@@ -21,38 +21,40 @@ var (
 	roll3Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
 )
 
-func makeCache(size int) []float64 {
-	result := make([]float64, size)
-	resetCache(result)
-	return result
+type cacheEntry struct {
+	isSet bool
+	value float64
 }
 
-func resetCache(c []float64) []float64 {
+func makeCache(size int) []cacheEntry {
+	return make([]cacheEntry, size)
+}
+
+func resetCache(c []cacheEntry) []cacheEntry {
 	for i := range c {
-		c[i] = unset
+		c[i] = cacheEntry{}
 	}
 	return c
 }
 
-func make2DCache(size1, size2 int) [][]float64 {
-	result := make([][]float64, size1)
+func make2DCache(size1, size2 int) [][]cacheEntry {
+	result := make([][]cacheEntry, size1)
 	for i := range result {
 		result[i] = makeCache(size2)
 	}
 	return result
 }
 
-func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
+func computeExpectedScores(scores []cacheEntry, game yahtzee.GameState) float64 {
 	if game.GameOver() {
 		return 0.0
 	}
 
 	expectedScore := scores[game]
-	if expectedScore != unset {
-		return expectedScore
+	if expectedScore.isSet {
+		return expectedScore.value
 	}
 
-	expectedScore = 0
 	remainingBoxes := game.AvailableBoxes()
 	depth := yahtzee.NumTurns - len(remainingBoxes)
 	roll2Cache := resetCache(roll2Caches[depth])
@@ -64,44 +66,42 @@ func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
 			eValue2 := 0.0
 			for _, roll2 := range held1.SubsequentRolls() {
 				maxValue2 := roll2Cache[roll2]
-				if maxValue2 != unset {
-					break
-				}
+				if !maxValue2.isSet {
+					for _, held2 := range roll2.PossibleHolds() {
+						eValue3 := 0.0
+						for _, roll3 := range held2.SubsequentRolls() {
+							maxValue3 := roll3Cache[roll3]
+							if !maxValue3.isSet {
+								for _, box := range remainingBoxes {
+									newGame, addedValue := game.FillBox(box, roll3)
+									expectedRemainingScore := computeExpectedScores(scores, newGame)
+									expectedPositionValue := float64(addedValue) + expectedRemainingScore
 
-				maxValue2 = 0.0
-				for _, held2 := range roll2.PossibleHolds() {
-					eValue3 := 0.0
-					for _, roll3 := range held2.SubsequentRolls() {
-						maxValue3 := roll3Cache[roll3]
-						if maxValue3 != unset {
-							break
-						}
+									if expectedPositionValue > maxValue3.value {
+										maxValue3.value = expectedPositionValue
+									}
+								}
 
-						maxValue3 = 0.0
-						for _, box := range remainingBoxes {
-							newGame, addedValue := game.FillBox(box, roll3)
-							expectedRemainingScore := computeExpectedScores(scores, newGame)
-							expectedPositionValue := float64(addedValue) + expectedRemainingScore
-
-							if expectedPositionValue > maxValue3 {
-								maxValue3 = expectedPositionValue
+								maxValue3.isSet = true
+								roll3Cache[roll3] = maxValue3
 							}
+
+							// Conditional probability of this roll starting from the held one.
+							p := (roll3 - held2).Probability()
+							eValue3 += p * maxValue3.value
 						}
 
-						roll3Cache[roll3] = maxValue3
-						// Conditional probability of this roll starting from the held one.
-						p := (roll3 - held2).Probability()
-						eValue3 += p * maxValue3
+						if eValue3 > maxValue2.value {
+							maxValue2.value = eValue3
+						}
 					}
 
-					if eValue3 > maxValue2 {
-						maxValue2 = eValue3
-					}
+					maxValue2.isSet = true
+					roll2Cache[roll2] = maxValue2
 				}
 
-				roll2Cache[roll2] = maxValue2
 				p := (roll2 - held1).Probability()
-				eValue2 += p * maxValue2
+				eValue2 += p * maxValue2.value
 			}
 
 			if eValue2 > maxValue1 {
@@ -109,15 +109,18 @@ func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
 			}
 		}
 
-		expectedScore += roll1.Probability() * maxValue1
+		expectedScore.value += roll1.Probability() * maxValue1
 	}
 
 	nGamesComputed++
 	if nGamesComputed%10000 == 0 {
-		glog.Infof("%d games computed", nGamesComputed)
+		glog.Infof("%d games computed, current: %v = %g",
+			nGamesComputed, game, expectedScore.value)
 	}
+
+	expectedScore.isSet = true
 	scores[game] = expectedScore
-	return expectedScore
+	return expectedScore.value
 }
 
 func main() {
@@ -144,7 +147,7 @@ func main() {
 	buf := bufio.NewWriter(f)
 	defer buf.Flush()
 	for game, score := range scores {
-		if score != unset {
+		if score.isSet {
 			fmt.Fprintf(buf, "%v\t%v\n", game, score)
 		}
 	}
