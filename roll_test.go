@@ -11,11 +11,11 @@ func TestNumDice(t *testing.T) {
 		roll     Roll
 		expected int
 	}{
-		{Roll(10230), 6},
-		{Roll(0), 0},
-		{Roll(11111), 5},
-		{Roll(50000), 5},
-		{Roll(20010), 3},
+		{NewRollFromBase10Counts(10230), 6},
+		{NewRollFromBase10Counts(0), 0},
+		{NewRollFromBase10Counts(11111), 5},
+		{NewRollFromBase10Counts(50000), 5},
+		{NewRollFromBase10Counts(20010), 3},
 	}
 
 	for _, tc := range cases {
@@ -30,11 +30,11 @@ func TestCounts(t *testing.T) {
 		roll     Roll
 		expected []int
 	}{
-		{Roll(10230), []int{0, 3, 2, 0, 1, 0}},
-		{Roll(0), []int{0, 0, 0, 0, 0, 0}},
-		{Roll(123456), []int{6, 5, 4, 3, 2, 1}},
-		{Roll(50000), []int{0, 0, 0, 0, 5, 0}},
-		{Roll(20010), []int{0, 1, 0, 0, 2, 0}},
+		{NewRollFromBase10Counts(10230), []int{0, 3, 2, 0, 1, 0}},
+		{NewRollFromBase10Counts(0), []int{0, 0, 0, 0, 0, 0}},
+		{NewRollFromBase10Counts(123456), []int{6, 5, 4, 3, 2, 1}},
+		{NewRollFromBase10Counts(50000), []int{0, 0, 0, 0, 5, 0}},
+		{NewRollFromBase10Counts(20010), []int{0, 1, 0, 0, 2, 0}},
 	}
 
 	for _, tc := range cases {
@@ -56,12 +56,12 @@ func TestSubsequentRolls(t *testing.T) {
 		input    Roll
 		expected int
 	}{
-		{Roll(0), 252},
-		{Roll(11111), 1},
-		{Roll(11011), 6},
-		{Roll(2002), 6},
-		{Roll(202), 6},
-		{Roll(3), 21},
+		{NewRollFromBase10Counts(0), 252},
+		{NewRollFromBase10Counts(11111), 1},
+		{NewRollFromBase10Counts(11011), 6},
+		{NewRollFromBase10Counts(2002), 6},
+		{NewRollFromBase10Counts(202), 6},
+		{NewRollFromBase10Counts(3), 21},
 	}
 
 	for _, tc := range cases {
@@ -87,12 +87,12 @@ func TestPossibleHolds(t *testing.T) {
 		input    Roll
 		expected int
 	}{
-		{Roll(0), 1},
-		{Roll(11111), pow(2, 5)},
-		{Roll(11011), pow(2, 4)},
-		{Roll(2002), pow(3, 2)},
-		{Roll(202), pow(3, 2)},
-		{Roll(3), pow(4, 1)},
+		{NewRollFromBase10Counts(0), 1},
+		{NewRollFromBase10Counts(11111), pow(2, 5)},
+		{NewRollFromBase10Counts(11011), pow(2, 4)},
+		{NewRollFromBase10Counts(2002), pow(3, 2)},
+		{NewRollFromBase10Counts(202), pow(3, 2)},
+		{NewRollFromBase10Counts(3), pow(4, 1)},
 	}
 
 	for _, tc := range cases {
@@ -115,12 +115,12 @@ func TestPossibleHolds(t *testing.T) {
 
 func TestProbability(t *testing.T) {
 	cases := []Roll{
-		Roll(0),
-		Roll(11111),
-		Roll(11011),
-		Roll(2002),
-		Roll(202),
-		Roll(3),
+		NewRollFromBase10Counts(0),
+		NewRollFromBase10Counts(11111),
+		NewRollFromBase10Counts(11011),
+		NewRollFromBase10Counts(2002),
+		NewRollFromBase10Counts(202),
+		NewRollFromBase10Counts(3),
 	}
 
 	for _, input := range cases {
@@ -142,11 +142,11 @@ func TestSumOfDice(t *testing.T) {
 		roll     Roll
 		expected int
 	}{
-		{Roll(10230), 3*2 + 2*3 + 1*5},
-		{Roll(0), 0},
-		{Roll(11111), 1 + 2 + 3 + 4 + 5},
-		{Roll(50000), 5 * 5},
-		{Roll(200010), 1*2 + 2*6},
+		{NewRollFromBase10Counts(10230), 3*2 + 2*3 + 1*5},
+		{NewRollFromBase10Counts(0), 0},
+		{NewRollFromBase10Counts(11111), 1 + 2 + 3 + 4 + 5},
+		{NewRollFromBase10Counts(50000), 5 * 5},
+		{NewRollFromBase10Counts(200010), 1*2 + 2*6},
 	}
 
 	for _, tc := range cases {
@@ -162,11 +162,11 @@ func TestHasNOfAKind(t *testing.T) {
 		n        int
 		expected bool
 	}{
-		{Roll(10230), 3, true},
-		{Roll(0), 1, false},
-		{Roll(11111), 2, false},
-		{Roll(50000), 5, true},
-		{Roll(200010), 1, true},
+		{NewRollFromBase10Counts(10230), 3, true},
+		{NewRollFromBase10Counts(0), 1, false},
+		{NewRollFromBase10Counts(11111), 2, false},
+		{NewRollFromBase10Counts(50000), 5, true},
+		{NewRollFromBase10Counts(200010), 1, true},
 	}
 
 	for _, tc := range cases {
@@ -183,14 +183,14 @@ func TestHasNInARow(t *testing.T) {
 		n        int
 		expected bool
 	}{
-		{Roll(10230), 2, true},
-		{Roll(0), 1, false},
-		{Roll(11111), 6, false},
-		{Roll(11111), 5, true},
-		{Roll(11111), 4, true},
-		{Roll(50000), 3, false},
-		{Roll(211010), 2, true},
-		{Roll(201010), 2, false},
+		{NewRollFromBase10Counts(10230), 2, true},
+		{NewRollFromBase10Counts(0), 1, false},
+		{NewRollFromBase10Counts(11111), 6, false},
+		{NewRollFromBase10Counts(11111), 5, true},
+		{NewRollFromBase10Counts(11111), 4, true},
+		{NewRollFromBase10Counts(50000), 3, false},
+		{NewRollFromBase10Counts(211010), 2, true},
+		{NewRollFromBase10Counts(201010), 2, false},
 	}
 
 	for _, tc := range cases {
@@ -206,12 +206,12 @@ func TestIsFullHouse(t *testing.T) {
 		roll     Roll
 		expected bool
 	}{
-		{Roll(230), true},
-		{Roll(0), false},
-		{Roll(11111), false},
-		{Roll(50000), false},
-		{Roll(221000), false},
-		{Roll(2030), true},
+		{NewRollFromBase10Counts(230), true},
+		{NewRollFromBase10Counts(0), false},
+		{NewRollFromBase10Counts(11111), false},
+		{NewRollFromBase10Counts(50000), false},
+		{NewRollFromBase10Counts(221000), false},
+		{NewRollFromBase10Counts(2030), true},
 	}
 
 	for _, tc := range cases {
@@ -227,12 +227,12 @@ func TestDice(t *testing.T) {
 		roll     Roll
 		expected []int
 	}{
-		{Roll(230), []int{2, 2, 2, 3, 3}},
-		{Roll(0), []int{}},
-		{Roll(11111), []int{1, 2, 3, 4, 5}},
-		{Roll(50000), []int{5, 5, 5, 5, 5}},
-		{Roll(221000), []int{4, 5, 5, 6, 6}},
-		{Roll(2030), []int{2, 2, 2, 4, 4}},
+		{NewRollFromBase10Counts(230), []int{2, 2, 2, 3, 3}},
+		{NewRollFromBase10Counts(0), []int{}},
+		{NewRollFromBase10Counts(11111), []int{1, 2, 3, 4, 5}},
+		{NewRollFromBase10Counts(50000), []int{5, 5, 5, 5, 5}},
+		{NewRollFromBase10Counts(221000), []int{4, 5, 5, 6, 6}},
+		{NewRollFromBase10Counts(2030), []int{2, 2, 2, 4, 4}},
 	}
 
 	for _, tc := range cases {

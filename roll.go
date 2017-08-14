@@ -5,35 +5,55 @@ import (
 )
 
 const (
-	NDice   = 5
-	NSides  = 6
-	MaxRoll = 500000 + 1
+	NDice  = 5
+	NSides = 6
+
+	// The smallest integer such that 2^i >= NDice.
+	bitsPerSide = uint(3)
+	// Mask to select the count of a single (lowest position) die.
+	// e.g. taking roll & dieMask will return the count of ones.
+	dieMask = (1 << bitsPerSide) - 1
+	// The largest possible roll integer (+1). This can be used
+	// to pre-allocate arrays indexed by roll.
+	MaxRoll = (NDice << (bitsPerSide * (NSides - 1))) + 1
 )
 
 var (
 	rolls         = enumerateAllRolls()
 	holds         = enumerateAllHolds()
 	probabilities = computeAllProbabilities()
-	pow10         = []int{1, 10, 100, 1000, 10000, 100000}
 )
 
-// Type Roll encodes a roll of five dice as an integer.
-// The first digit represents the number of ones, the second the
-// number of twos, and so on.
-//
-// Example: [1, 1, 2, 3, 6] => 100112.
-//
-// This means that all rolls of five dice are represented by
-// an integer <= 500000, and permutations are considered equivalent.
+// Type Roll encodes a roll of five dice as the concatenation of 6 octal integers.
+// Each 3 bits represent the number of ones, the number of twos, etc.
 type Roll uint
 
 func NewRoll() Roll {
 	return Roll(0)
 }
 
+// Construct a new roll from the given counts in base-10
+// (as opposed to the canonical representation in base-8).
+func NewRollFromBase10Counts(counts int) Roll {
+	r := NewRoll()
+
+	for side := 1; side <= NSides; side++ {
+		count := counts % 10
+		r += NewRollOfDie(side, count)
+		counts /= 10
+	}
+
+	return r
+}
+
+// Construct a new Roll with count of the given die.
+func NewRollOfDie(die, count int) Roll {
+	return Roll(count << (uint(die-1) * bitsPerSide))
+}
+
 // Return a new Roll constructed by adding the given die to this one.
 func (r Roll) Add(die int) Roll {
-	return r + Roll(pow10[die-1])
+	return r + NewRollOfDie(die, 1)
 }
 
 func (r Roll) Remove(die int) Roll {
@@ -41,14 +61,14 @@ func (r Roll) Remove(die int) Roll {
 		panic(fmt.Errorf("Trying to remove die %v from %v", die, r))
 	}
 
-	return r - Roll(pow10[die-1])
+	return r - NewRollOfDie(die, 1)
 }
 
 // Count returns the total number of dice in this roll.
 func (r Roll) NumDice() int {
 	result := 0
-	for ; r > 0; r /= 10 {
-		count := int(r % 10)
+	for ; r > 0; r >>= bitsPerSide {
+		count := int(r & dieMask)
 		result += count
 	}
 	return result
@@ -57,8 +77,8 @@ func (r Roll) NumDice() int {
 func (r Roll) Counts() []int {
 	counts := make([]int, NSides)
 	for side := 1; side <= NSides; side++ {
-		counts[side-1] = int(r % 10)
-		r /= 10
+		counts[side-1] = int(r & dieMask)
+		r >>= bitsPerSide
 	}
 	return counts
 }
@@ -66,11 +86,11 @@ func (r Roll) Counts() []int {
 // Return the side of one of the dice in this roll.
 func (r Roll) One() int {
 	for side := 1; side <= NSides; side++ {
-		count := int(r % 10)
+		count := int(r & dieMask)
 		if count > 0 {
 			return side
 		}
-		r /= 10
+		r >>= bitsPerSide
 	}
 
 	return -1
@@ -78,7 +98,7 @@ func (r Roll) One() int {
 
 // CountOf returns the number of a particular side in this roll.
 func (r Roll) CountOf(side int) int {
-	return (int(r) / pow10[side-1]) % 10
+	return int(r>>(uint(side-1)*bitsPerSide)) & dieMask
 }
 
 // Return all possible subsequent rolls starting from this one.
@@ -102,17 +122,17 @@ func (r Roll) Probability() float64 {
 func (r Roll) SumOfDice() int {
 	result := 0
 	for side := 1; side <= NSides; side++ {
-		count := int(r % 10)
+		count := int(r & dieMask)
 		result += side * count
-		r /= 10
+		r >>= bitsPerSide
 	}
 	return result
 }
 
 // HasNOfAKind checks whether there are at least N of any side in this roll.
 func (r Roll) HasNOfAKind(n int) bool {
-	for ; r > 0; r /= 10 {
-		count := int(r % 10)
+	for ; r > 0; r >>= bitsPerSide {
+		count := int(r & dieMask)
 		if count >= n {
 			return true
 		}
@@ -124,8 +144,8 @@ func (r Roll) HasNOfAKind(n int) bool {
 // HasNInARow checks whether there is a sequence of N sides in a row.
 func (r Roll) HasNInARow(n int) bool {
 	nInARow := 0
-	for ; r > 0; r /= 10 {
-		count := int(r % 10)
+	for ; r > 0; r >>= bitsPerSide {
+		count := int(r & dieMask)
 		if count > 0 {
 			nInARow++
 			if nInARow >= n {
@@ -144,8 +164,8 @@ func (r Roll) IsFullHouse() bool {
 		return false
 	}
 
-	for ; r > 0; r /= 10 {
-		count := int(r % 10)
+	for ; r > 0; r >>= bitsPerSide {
+		count := int(r & dieMask)
 		if count != 0 && count != 2 && count != 3 {
 			return false
 		}
@@ -159,11 +179,11 @@ func (r Roll) IsFullHouse() bool {
 func (r Roll) Dice() []int {
 	dice := make([]int, 0)
 	for side := 1; side <= NSides; side++ {
-		count := int(r % 10)
+		count := int(r & dieMask)
 		for i := 0; i < count; i++ {
 			dice = append(dice, side)
 		}
-		r /= 10
+		r >>= bitsPerSide
 	}
 	return dice
 }
@@ -236,7 +256,7 @@ func enumerateHolds(roll Roll, die int) []Roll {
 	// we can compute expected values over the held multiset efficiently.
 	// See Pawlewicz, Appendix B.
 	for i := 0; i <= roll.CountOf(die); i++ {
-		kept := Roll(i * pow10[die-1])
+		kept := NewRollOfDie(die, i)
 		for _, remaining := range enumerateHolds(roll, die+1) {
 			finalRoll := kept + remaining
 			result = append(result, finalRoll)

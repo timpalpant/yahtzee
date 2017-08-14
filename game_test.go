@@ -40,7 +40,7 @@ func TestFillBox(t *testing.T) {
 		}
 	}
 
-	game, _ = game.FillBox(Twos, Roll(221))
+	game, _ = game.FillBox(Twos, NewRollFromBase10Counts(221))
 	for box := Ones; box <= Yahtzee; box++ {
 		if box == Twos && !game.BoxFilled(box) {
 			t.Errorf("Box %v should be filled", box)
@@ -49,7 +49,7 @@ func TestFillBox(t *testing.T) {
 		}
 	}
 
-	game, _ = game.FillBox(Yahtzee, Roll(50))
+	game, _ = game.FillBox(Yahtzee, NewRollFromBase10Counts(50))
 	for box := Ones; box <= Yahtzee; box++ {
 		if (box == Twos || box == Yahtzee) && !game.BoxFilled(box) {
 			t.Errorf("Box %v should be filled", box)
@@ -59,11 +59,11 @@ func TestFillBox(t *testing.T) {
 	}
 
 	// Exceed the UHS bonus threshold.
-	game, _ = game.FillBox(Sixes, Roll(500000))
-	game, _ = game.FillBox(Fives, Roll(50000))
-	game, _ = game.FillBox(Fours, Roll(5000))
-	game, _ = game.FillBox(Threes, Roll(131))
-	game, _ = game.FillBox(Ones, Roll(122))
+	game, _ = game.FillBox(Sixes, NewRollFromBase10Counts(500000))
+	game, _ = game.FillBox(Fives, NewRollFromBase10Counts(50000))
+	game, _ = game.FillBox(Fours, NewRollFromBase10Counts(5000))
+	game, _ = game.FillBox(Threes, NewRollFromBase10Counts(131))
+	game, _ = game.FillBox(Ones, NewRollFromBase10Counts(122))
 	for box := Ones; box <= Sixes; box++ {
 		if !game.BoxFilled(box) {
 			t.Errorf("Box %v should be filled", box)
@@ -78,23 +78,23 @@ func TestBonusEligible(t *testing.T) {
 		t.Error("New game should not be bonus eligible")
 	}
 
-	game, _ = game.FillBox(Sixes, Roll(500000))
+	game, _ = game.FillBox(Sixes, NewRollFromBase10Counts(500000))
 	if game.BonusEligible() {
 		t.Error("Game should not be bonus eligible until Yahtzee is filled")
 	}
 
-	game, _ = game.FillBox(Yahtzee, Roll(500000))
+	game, _ = game.FillBox(Yahtzee, NewRollFromBase10Counts(500000))
 	if !game.BonusEligible() {
 		t.Error("Game should be bonus eligible once Yahtzee is filled")
 	}
 
 	game = NewGame()
-	game, _ = game.FillBox(Yahtzee, Roll(122))
+	game, _ = game.FillBox(Yahtzee, NewRollFromBase10Counts(122))
 	if game.BonusEligible() {
 		t.Error("Game should not be bonus eligible if a zero is taken")
 	}
 
-	game, _ = game.FillBox(Ones, Roll(5))
+	game, _ = game.FillBox(Ones, NewRollFromBase10Counts(5))
 	if game.BonusEligible() {
 		t.Error("Game should not be bonus eligible if a zero is taken")
 	}
@@ -106,22 +106,22 @@ func TestUpperHalfScore(t *testing.T) {
 		t.Error("UHS should be 0 at game start")
 	}
 
-	game, _ = game.FillBox(Sixes, Roll(500000))
+	game, _ = game.FillBox(Sixes, NewRollFromBase10Counts(500000))
 	if game.UpperHalfScore() != 30 {
 		t.Errorf("UHS should be 30, got %v", game.UpperHalfScore())
 	}
 
-	game, _ = game.FillBox(Fives, Roll(50000))
+	game, _ = game.FillBox(Fives, NewRollFromBase10Counts(50000))
 	if game.UpperHalfScore() != 55 {
 		t.Errorf("UHS should be 55, got %v", game.UpperHalfScore())
 	}
 
-	game, _ = game.FillBox(Fours, Roll(5000))
+	game, _ = game.FillBox(Fours, NewRollFromBase10Counts(5000))
 	if game.UpperHalfScore() != 63 {
 		t.Errorf("UHS should be capped at 63, got %v", game.UpperHalfScore())
 	}
 
-	game, _ = game.FillBox(Ones, Roll(122))
+	game, _ = game.FillBox(Ones, NewRollFromBase10Counts(122))
 	if game.UpperHalfScore() != 63 {
 		t.Errorf("UHS should be capped at 63, got %v", game.UpperHalfScore())
 	}
@@ -134,13 +134,13 @@ func TestAvailableBoxes(t *testing.T) {
 		t.Error("New game should have 13 available boxes")
 	}
 
-	game, _ = game.FillBox(Sixes, Roll(212))
+	game, _ = game.FillBox(Sixes, NewRollFromBase10Counts(212))
 	if len(game.AvailableBoxes()) != 12 {
 		t.Error("Game should have 12 available boxes")
 	}
 
 	for _, box := range []Box{Twos, Yahtzee, ThreeOfAKind, FourOfAKind} {
-		game, _ = game.FillBox(box, Roll(212))
+		game, _ = game.FillBox(box, NewRollFromBase10Counts(212))
 	}
 
 	result := game.AvailableBoxes()
@@ -150,7 +150,7 @@ func TestAvailableBoxes(t *testing.T) {
 	}
 
 	for _, box := range result {
-		game, _ = game.FillBox(box, Roll(212))
+		game, _ = game.FillBox(box, NewRollFromBase10Counts(212))
 	}
 
 	if len(game.AvailableBoxes()) > 0 {
