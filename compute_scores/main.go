@@ -13,36 +13,47 @@ import (
 	"github.com/timpalpant/yahtzee"
 )
 
-const unset = -1
-
 var (
 	nGamesComputed = 0
 	held1Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
 	held2Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
 )
 
-func makeCache(size int) []float64 {
-	result := make([]float64, size)
-	resetCache(result)
-	return result
+// ScoreCache memoizes computed values. It is designed to be efficiently
+// reusable by resetting the isSet array (which uses an efficient memset).
+// Unset values are not defined.
+type ScoreCache struct {
+	values []float64
+	isSet  []bool
 }
 
-func resetCache(c []float64) []float64 {
-	for i := range c {
-		c[i] = unset
+func NewScoreCache(size int) *ScoreCache {
+	return &ScoreCache{
+		values: make([]float64, size),
+		isSet:  make([]bool, size),
 	}
-	return c
 }
 
-func make2DCache(size1, size2 int) [][]float64 {
-	result := make([][]float64, size1)
+func (sc *ScoreCache) Reset() {
+	for i := range sc.isSet {
+		sc.isSet[i] = false
+	}
+}
+
+func (sc *ScoreCache) Set(key uint, value float64) {
+	sc.values[key] = value
+	sc.isSet[key] = true
+}
+
+func make2DCache(size1, size2 int) []*ScoreCache {
+	result := make([]*ScoreCache, size1)
 	for i := range result {
-		result[i] = makeCache(size2)
+		result[i] = NewScoreCache(size2)
 	}
 	return result
 }
 
-func bestScoreForRoll(scores []float64, game yahtzee.GameState, roll yahtzee.Roll) float64 {
+func bestScoreForRoll(scores *ScoreCache, game yahtzee.GameState, roll yahtzee.Roll) float64 {
 	best := 0.0
 	for _, box := range game.AvailableBoxes() {
 		newGame, addedValue := game.FillBox(box, roll)
@@ -57,13 +68,12 @@ func bestScoreForRoll(scores []float64, game yahtzee.GameState, roll yahtzee.Rol
 	return best
 }
 
-func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, heldValue func(held yahtzee.Roll) float64) float64 {
-	eValue := heldCache[held]
-	if eValue != unset {
-		return eValue
+func expectedScoreForHold(heldCache *ScoreCache, held yahtzee.Roll, heldValue func(held yahtzee.Roll) float64) float64 {
+	if heldCache.isSet[held] {
+		return heldCache.values[held]
 	}
 
-	eValue = 0.0
+	eValue := 0.0
 	if held.NumDice() == yahtzee.NDice {
 		eValue = heldValue(held)
 	} else {
@@ -72,25 +82,26 @@ func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, heldValue func
 		}
 	}
 
-	heldCache[held] = eValue
+	heldCache.Set(uint(held), eValue)
 	return eValue
 }
 
-func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
+func computeExpectedScores(scores *ScoreCache, game yahtzee.GameState) float64 {
 	if game.GameOver() {
 		return 0.0
 	}
 
-	expectedScore := scores[game]
-	if expectedScore != unset {
-		return expectedScore
+	if scores.isSet[game] {
+		return scores.values[game]
 	}
 
-	expectedScore = 0
+	expectedScore := 0.0
 	remainingBoxes := game.AvailableBoxes()
 	depth := yahtzee.NumTurns - len(remainingBoxes)
-	held1Cache := resetCache(held1Caches[depth])
-	held2Cache := resetCache(held2Caches[depth])
+	held1Cache := held1Caches[depth]
+	held1Cache.Reset()
+	held2Cache := held2Caches[depth]
+	held2Cache.Reset()
 
 	for _, roll1 := range yahtzee.NewRoll().SubsequentRolls() {
 		maxValue1 := 0.0
@@ -124,7 +135,7 @@ func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
 			nGamesComputed, game, expectedScore)
 	}
 
-	scores[game] = expectedScore
+	scores.Set(uint(game), expectedScore)
 	return expectedScore
 }
 
@@ -138,10 +149,10 @@ func main() {
 
 	glog.Info("Computing expected score table")
 	game := yahtzee.NewGame()
-	scores := makeCache(yahtzee.MaxGame)
+	scores := NewScoreCache(yahtzee.MaxGame)
 	computeExpectedScores(scores, game)
 
-	glog.Infof("Expected score: %.2f", scores[game])
+	glog.Infof("Expected score: %.2f", scores.values[game])
 	glog.Infof("Writing score table to: %v", *outputFilename)
 	f, err := os.Create(*outputFilename)
 	if err != nil {
@@ -151,9 +162,9 @@ func main() {
 
 	buf := bufio.NewWriter(f)
 	defer buf.Flush()
-	for game, score := range scores {
-		if score != -1 {
-			fmt.Fprintf(buf, "%v\t%v\n", game, score)
+	for game, isSet := range scores.isSet {
+		if isSet {
+			fmt.Fprintf(buf, "%v\t%v\n", game, scores.values[game])
 		}
 	}
 }

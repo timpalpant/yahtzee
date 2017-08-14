@@ -25,7 +25,7 @@ var (
 //
 // This means that all rolls of five dice are represented by
 // an integer <= 500000, and permutations are considered equivalent.
-type Roll int
+type Roll uint
 
 func NewRoll() Roll {
 	return Roll(0)
