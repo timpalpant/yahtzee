@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	MaxGame  = 6400000
+	MaxGame  = 64 << shiftUHS
 	NumTurns = int(Yahtzee + 1)
 
 	UpperHalfBonusThreshold = 63
@@ -131,6 +131,6 @@ func (game GameState) String() string {
 }
 
 func nativeUpperHalfBox(yahtzeeRoll Roll) Box {
-	side := yahtzeeRoll.Smallest()
+	side := yahtzeeRoll.One()
 	return Box(side - 1)
 }

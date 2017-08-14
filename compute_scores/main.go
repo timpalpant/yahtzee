@@ -57,7 +57,7 @@ func bestScoreForRoll(scores []float64, game yahtzee.GameState, roll yahtzee.Rol
 	return best
 }
 
-func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) float64) float64 {
+func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, heldValue func(held yahtzee.Roll) float64) float64 {
 	eValue := heldCache[held]
 	if eValue != unset {
 		return eValue
@@ -65,10 +65,10 @@ func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, rollValue func
 
 	eValue = 0.0
 	if held.NumDice() == yahtzee.NDice {
-		eValue = rollValue(held)
+		eValue = heldValue(held)
 	} else {
 		for side := 1; side <= yahtzee.NSides; side++ {
-			eValue += expectedScoreForHold(heldCache, held.Add(side), rollValue) / yahtzee.NSides
+			eValue += expectedScoreForHold(heldCache, held.Add(side), heldValue) / yahtzee.NSides
 		}
 	}
 

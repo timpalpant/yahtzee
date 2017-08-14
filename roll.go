@@ -14,6 +14,7 @@ var (
 	rolls         = enumerateAllRolls()
 	holds         = enumerateAllHolds()
 	probabilities = computeAllProbabilities()
+	pow10         = []int{1, 10, 100, 1000, 10000, 100000}
 )
 
 // Type Roll encodes a roll of five dice as an integer.
@@ -28,6 +29,19 @@ type Roll int
 
 func NewRoll() Roll {
 	return Roll(0)
+}
+
+// Return a new Roll constructed by adding the given die to this one.
+func (r Roll) Add(die int) Roll {
+	return r + Roll(pow10[die-1])
+}
+
+func (r Roll) Remove(die int) Roll {
+	if r.CountOf(die) <= 0 {
+		panic(fmt.Errorf("Trying to remove die %v from %v", die, r))
+	}
+
+	return r - Roll(pow10[die-1])
 }
 
 // Count returns the total number of dice in this roll.
@@ -49,7 +63,8 @@ func (r Roll) Counts() []int {
 	return counts
 }
 
-func (r Roll) Smallest() int {
+// Return the side of one of the dice in this roll.
+func (r Roll) One() int {
 	for side := 1; side <= NSides; side++ {
 		count := int(r % 10)
 		if count > 0 {
@@ -63,7 +78,7 @@ func (r Roll) Smallest() int {
 
 // CountOf returns the number of a particular side in this roll.
 func (r Roll) CountOf(side int) int {
-	return (int(r) / pow(10, side-1)) % 10
+	return (int(r) / pow10[side-1]) % 10
 }
 
 // Return all possible subsequent rolls starting from this one.
@@ -189,7 +204,7 @@ func enumerateRollHelper(n, j, k int) []Roll {
 	result := make([]Roll, 0)
 	for die := j; die <= k; die++ {
 		for _, subRoll := range enumerateRollHelper(n-1, die, k) {
-			roll := subRoll + Roll(pow(10, die-1))
+			roll := subRoll.Add(die)
 			result = append(result, roll)
 		}
 	}
@@ -217,12 +232,11 @@ func enumerateHolds(roll Roll, die int) []Roll {
 	}
 
 	result := make([]Roll, 0)
-	dieValue := pow(10, die-1)
-	// Enumerate in order of most held -> least held so that
+	// Enumerate in order of most least -> most held so that
 	// we can compute expected values over the held multiset efficiently.
-	// See Pawlewicz, Appendix B.1.
-	for i := roll.CountOf(die); i >= 0; i-- {
-		kept := Roll(i * dieValue)
+	// See Pawlewicz, Appendix B.
+	for i := 0; i <= roll.CountOf(die); i++ {
+		kept := Roll(i * pow10[die-1])
 		for _, remaining := range enumerateHolds(roll, die+1) {
 			finalRoll := kept + remaining
 			result = append(result, finalRoll)
