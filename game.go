@@ -55,13 +55,25 @@ func (game GameState) UpperHalfScore() int {
 	return int(game >> shiftUHS)
 }
 
+var availableBoxes = computeAvailableBoxes()
+
 func (game GameState) AvailableBoxes() []Box {
-	result := make([]Box, 0)
-	for box := Ones; box <= Yahtzee; box++ {
-		if !game.BoxFilled(box) {
-			result = append(result, box)
+	return availableBoxes[game]
+}
+
+func computeAvailableBoxes() [][]Box {
+	result := make([][]Box, MaxGame)
+	for game := GameState(0); game < MaxGame; game++ {
+		available := make([]Box, 0)
+		for box := Ones; box <= Yahtzee; box++ {
+			if !game.BoxFilled(box) {
+				available = append(available, box)
+			}
 		}
+
+		result[game] = available
 	}
+
 	return result
 }
 
@@ -92,11 +104,11 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 		}
 	}
 
+	// Joker rule: Roll can be played in any box for points,
+	// if the corresponding upper half box is already filled.
 	if game.BonusEligible() && IsYahtzee(roll) {
 		value += YahtzeeBonus
 
-		// Joker rule: Roll can be played in any box for points,
-		// if the corresponding upper half box is already filled.
 		nativeBox := nativeUpperHalfBox(roll)
 		if game.BoxFilled(nativeBox) {
 			switch box {

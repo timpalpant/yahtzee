@@ -17,8 +17,8 @@ const unset = -1
 
 var (
 	nGamesComputed = 0
-	roll2Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
-	roll3Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
+	held1Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
+	held2Caches    = make2DCache(yahtzee.NumTurns, yahtzee.MaxRoll)
 )
 
 func makeCache(size int) []float64 {
@@ -42,6 +42,40 @@ func make2DCache(size1, size2 int) [][]float64 {
 	return result
 }
 
+func bestScoreForRoll(scores []float64, game yahtzee.GameState, roll yahtzee.Roll) float64 {
+	best := 0.0
+	for _, box := range game.AvailableBoxes() {
+		newGame, addedValue := game.FillBox(box, roll)
+		expectedRemainingScore := computeExpectedScores(scores, newGame)
+		expectedPositionValue := float64(addedValue) + expectedRemainingScore
+
+		if expectedPositionValue > best {
+			best = expectedPositionValue
+		}
+	}
+
+	return best
+}
+
+func expectedScoreForHold(heldCache []float64, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) float64) float64 {
+	eValue := heldCache[held]
+	if eValue != unset {
+		return eValue
+	}
+
+	eValue = 0.0
+	if held.NumDice() == yahtzee.NDice {
+		eValue = rollValue(held)
+	} else {
+		for side := 1; side <= yahtzee.NSides; side++ {
+			eValue += expectedScoreForHold(heldCache, held.Add(side), rollValue) / yahtzee.NSides
+		}
+	}
+
+	heldCache[held] = eValue
+	return eValue
+}
+
 func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
 	if game.GameOver() {
 		return 0.0
@@ -52,54 +86,29 @@ func computeExpectedScores(scores []float64, game yahtzee.GameState) float64 {
 		return expectedScore
 	}
 
+	expectedScore = 0
 	remainingBoxes := game.AvailableBoxes()
 	depth := yahtzee.NumTurns - len(remainingBoxes)
-	roll2Cache := resetCache(roll2Caches[depth])
-	roll3Cache := resetCache(roll3Caches[depth])
+	held1Cache := resetCache(held1Caches[depth])
+	held2Cache := resetCache(held2Caches[depth])
 
 	for _, roll1 := range yahtzee.NewRoll().SubsequentRolls() {
 		maxValue1 := 0.0
 		for _, held1 := range roll1.PossibleHolds() {
-			eValue2 := 0.0
-			for _, roll2 := range held1.SubsequentRolls() {
-				maxValue2 := roll2Cache[roll2]
-				if maxValue2 == unset {
-					maxValue2 = 0
-					for _, held2 := range roll2.PossibleHolds() {
-						eValue3 := 0.0
-						for _, roll3 := range held2.SubsequentRolls() {
-							maxValue3 := roll3Cache[roll3]
-							if maxValue3 == unset {
-								maxValue3 = 0
-								for _, box := range remainingBoxes {
-									newGame, addedValue := game.FillBox(box, roll3)
-									expectedRemainingScore := computeExpectedScores(scores, newGame)
-									expectedPositionValue := float64(addedValue) + expectedRemainingScore
+			eValue2 := expectedScoreForHold(held1Cache, held1, func(roll2 yahtzee.Roll) float64 {
+				maxValue2 := 0.0
+				for _, held2 := range roll2.PossibleHolds() {
+					eValue3 := expectedScoreForHold(held2Cache, held2, func(roll3 yahtzee.Roll) float64 {
+						return bestScoreForRoll(scores, game, roll3)
+					})
 
-									if expectedPositionValue > maxValue3 {
-										maxValue3 = expectedPositionValue
-									}
-								}
-
-								roll3Cache[roll3] = maxValue3
-							}
-
-							// Conditional probability of this roll starting from the held one.
-							p := (roll3 - held2).Probability()
-							eValue3 += p * maxValue3
-						}
-
-						if eValue3 > maxValue2 {
-							maxValue2 = eValue3
-						}
+					if eValue3 > maxValue2 {
+						maxValue2 = eValue3
 					}
-
-					roll2Cache[roll2] = maxValue2
 				}
 
-				p := (roll2 - held1).Probability()
-				eValue2 += p * maxValue2
-			}
+				return maxValue2
+			})
 
 			if eValue2 > maxValue1 {
 				maxValue1 = eValue2
