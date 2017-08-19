@@ -3,28 +3,38 @@ package yahtzee
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"os"
-	"strconv"
-	"strings"
 )
 
-// ScoreCache memoizes computed values. It is designed to be efficiently
+// Cache memoizes computed values. It is designed to be efficiently
 // reusable by resetting the isSet array (which uses an efficient memset).
-// Unset values are not defined.
-type ScoreCache struct {
-	values []float64
+// Values for which isSet[i] == false are not defined.
+type Cache struct {
+	values []GameResult
 	isSet  []bool
 }
 
-func NewScoreCache(size int) *ScoreCache {
-	return &ScoreCache{
-		values: make([]float64, size),
+func NewCache(size int) *Cache {
+	return &Cache{
+		values: make([]GameResult, size),
 		isSet:  make([]bool, size),
 	}
 }
 
-func LoadScoreCache(filename string) (*ScoreCache, error) {
+func New2DCache(size1, size2 int) []*Cache {
+	result := make([]*Cache, size1)
+	for i := range result {
+		result[i] = NewCache(size2)
+	}
+	return result
+}
+
+type cacheValue struct {
+	Key   uint
+	Value GameResult
+}
+
+func LoadCache(filename string) (*Cache, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -32,125 +42,20 @@ func LoadScoreCache(filename string) (*ScoreCache, error) {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-	scores := NewScoreCache(MaxGame)
+	scores := NewCache(MaxGame)
 	for scanner.Scan() {
-		entry := strings.Split(scanner.Text(), "\t")
-		if len(entry) != 2 {
-			return nil, fmt.Errorf("Invalid score table line: %v", scanner.Text())
-		}
-
-		game, err := strconv.ParseUint(entry[0], 10, 64)
-		if err != nil {
-			return nil, err
-		}
-
-		score, err := strconv.ParseFloat(entry[0], 64)
-		if err != nil {
-			return nil, err
-		}
-
-		scores.Set(uint(game), score)
-	}
-
-	return scores, scanner.Err()
-}
-
-func (sc *ScoreCache) SaveToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	buf := bufio.NewWriter(f)
-	defer buf.Flush()
-	for game, isSet := range sc.isSet {
-		if isSet {
-			score := sc.Get(uint(game))
-			fmt.Fprintf(buf, "%v\t%v\n", game, score)
-		}
-	}
-
-	return nil
-}
-
-func (sc *ScoreCache) Reset() {
-	for i := range sc.isSet {
-		sc.isSet[i] = false
-	}
-}
-
-func (sc *ScoreCache) Set(key uint, value float64) {
-	sc.values[key] = value
-	sc.isSet[key] = true
-}
-
-func (sc *ScoreCache) Get(key uint) float64 {
-	return sc.values[key]
-}
-
-func (sc *ScoreCache) IsSet(key uint) bool {
-	return sc.isSet[key]
-}
-
-// DistributionCache memoizes computed distributions.
-type DistributionCache struct {
-	values []*ScoreDistribution
-	isSet  []bool
-}
-
-func NewDistributionCache(size int) *DistributionCache {
-	return &DistributionCache{
-		values: make([]*ScoreDistribution, size),
-		isSet:  make([]bool, size),
-	}
-}
-
-func (dc *DistributionCache) Reset() {
-	for i := range dc.isSet {
-		dc.isSet[i] = false
-	}
-}
-
-func (dc *DistributionCache) Set(key uint, value *ScoreDistribution) {
-	dc.values[key] = value
-	dc.isSet[key] = true
-}
-
-func (dc *DistributionCache) Get(key uint) *ScoreDistribution {
-	return dc.values[key]
-}
-
-func (dc *DistributionCache) IsSet(key uint) bool {
-	return dc.isSet[key]
-}
-
-func LoadDistributionCache(filename string) (*DistributionCache, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	scores := NewDistributionCache(MaxGame)
-	for scanner.Scan() {
-		var result struct {
-			Game         uint
-			Distribution *ScoreDistribution
-		}
-
+		var result cacheValue
 		if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
 			return nil, err
 		}
 
-		scores.Set(result.Game, result.Distribution)
+		scores.Set(result.Key, result.Value)
 	}
 
 	return scores, scanner.Err()
 }
 
-func (dc *DistributionCache) SaveToFile(filename string) error {
+func (c *Cache) SaveToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -159,25 +64,36 @@ func (dc *DistributionCache) SaveToFile(filename string) error {
 
 	buf := bufio.NewWriter(f)
 	defer buf.Flush()
-	for game, isSet := range dc.isSet {
+
+	enc := json.NewEncoder(buf)
+	for key, isSet := range c.isSet {
 		if isSet {
-			distribution := dc.Get(uint(game))
-
-			result := struct {
-				Game         int
-				Distribution *ScoreDistribution
-			}{game, distribution}
-
-			jsonBuf, err := json.Marshal(result)
-			if err != nil {
-				return err
-			}
-
-			if _, err := fmt.Fprintln(buf, jsonBuf); err != nil {
+			value := c.values[key]
+			result := cacheValue{uint(key), value}
+			if err := enc.Encode(&result); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+func (c *Cache) Reset() {
+	for i := range c.isSet {
+		c.isSet[i] = false
+	}
+}
+
+func (c *Cache) Set(key uint, value GameResult) {
+	c.values[key] = value
+	c.isSet[key] = true
+}
+
+func (c *Cache) Get(key uint) GameResult {
+	return c.values[key]
+}
+
+func (c *Cache) IsSet(key uint) bool {
+	return c.isSet[key]
 }

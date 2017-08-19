@@ -19,10 +19,11 @@ func main() {
 	}()
 
 	glog.Info("Computing expected score table")
-	s := yahtzee.NewBeatHighScoreStrategy()
-	e := s.Compute(yahtzee.NewGame())
+	ev := yahtzee.NewScoreDistribution()
+	s := yahtzee.NewStrategy(ev)
+	result := s.Compute(yahtzee.NewGame())
 
-	glog.Infof("Expected score: %.2f", e)
+	glog.Infof("Expected score: %.2f", result)
 	glog.Infof("Writing score table to: %v", *outputFilename)
 	err := s.SaveToFile(*outputFilename)
 	if err != nil {
