@@ -64,7 +64,7 @@ func (r Roll) Remove(die int) Roll {
 	return r - NewRollOfDie(die, 1)
 }
 
-// Count returns the total number of dice in this roll.
+// NumDice returns the total number of dice in this roll.
 func (r Roll) NumDice() int {
 	result := 0
 	for ; r > 0; r >>= bitsPerSide {
@@ -72,15 +72,6 @@ func (r Roll) NumDice() int {
 		result += count
 	}
 	return result
-}
-
-func (r Roll) Counts() []int {
-	counts := make([]int, NSides)
-	for side := 1; side <= NSides; side++ {
-		counts[side-1] = int(r & dieMask)
-		r >>= bitsPerSide
-	}
-	return counts
 }
 
 // Return the side of one of the dice in this roll.
@@ -172,6 +163,15 @@ func (r Roll) IsFullHouse() bool {
 	}
 
 	return true
+}
+
+func (r Roll) Counts() []int {
+	counts := make([]int, NSides)
+	for side := 1; side <= NSides; side++ {
+		counts[side-1] = int(r & dieMask)
+		r >>= bitsPerSide
+	}
+	return counts
 }
 
 // Dice unpacks this Roll into its natural representation
