@@ -39,6 +39,11 @@ func NewGame() GameState {
 	return GameState(0)
 }
 
+func (game GameState) Turn() int {
+	remainingBoxes := game.AvailableBoxes()
+	return NumTurns - len(remainingBoxes)
+}
+
 func (game GameState) GameOver() bool {
 	return (game & boxesMask) == boxesMask
 }

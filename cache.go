@@ -34,27 +34,6 @@ type cacheValue struct {
 	Value GameResult
 }
 
-func LoadCache(filename string) (*Cache, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	scores := NewCache(MaxGame)
-	for scanner.Scan() {
-		var result cacheValue
-		if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
-			return nil, err
-		}
-
-		scores.Set(result.Key, result.Value)
-	}
-
-	return scores, scanner.Err()
-}
-
 func (c *Cache) SaveToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -86,14 +65,26 @@ func (c *Cache) Reset() {
 }
 
 func (c *Cache) Set(key uint, value GameResult) {
+	if c == nil {
+		return
+	}
+
 	c.values[key] = value
 	c.isSet[key] = true
 }
 
 func (c *Cache) Get(key uint) GameResult {
+	if c == nil {
+		return nil
+	}
+
 	return c.values[key]
 }
 
 func (c *Cache) IsSet(key uint) bool {
+	if c == nil {
+		return false
+	}
+
 	return c.isSet[key]
 }

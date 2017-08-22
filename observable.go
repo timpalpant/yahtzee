@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+// ExpectedValue implements GameResult, and represents
+// maximizing your expected score.
 type ExpectedValue float64
 
 func NewExpectedValue() ExpectedValue {
@@ -32,6 +34,8 @@ func (ev ExpectedValue) Shift(offset int) GameResult {
 	return ev + ExpectedValue(offset)
 }
 
+// ScoreDistribution implements GameResult, and represents
+// maximizing your probability of obtaining score s for all s.
 type ScoreDistribution struct {
 	// The largest integer such that P(start) == 1.
 	Start int
