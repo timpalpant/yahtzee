@@ -2,10 +2,10 @@ package yahtzee
 
 import (
 	"bufio"
-	"encoding/json"
 	"os"
 
 	"github.com/golang/glog"
+	json "github.com/pquerna/ffjson/ffjson"
 )
 
 // GameResult is an observable to maximize.
@@ -166,6 +166,20 @@ func (t *TurnOptimizer) GetBestHold1(roll1 Roll) GameResult {
 	return maxValue1
 }
 
+func (t *TurnOptimizer) GetHold1Outcomes(roll1 Roll) map[Roll]GameResult {
+	possibleHolds := roll1.PossibleHolds()
+	result := make(map[Roll]GameResult, len(possibleHolds))
+	for _, held1 := range possibleHolds {
+		eValue2 := t.expectedResultForHold(t.held1Cache, held1, func(roll2 Roll) GameResult {
+			return t.GetBestHold2(roll2)
+		})
+
+		result[held1] = eValue2
+	}
+
+	return result
+}
+
 func (t *TurnOptimizer) GetBestHold2(roll2 Roll) GameResult {
 	maxValue2 := t.strategy.observable.Copy()
 	for _, held2 := range roll2.PossibleHolds() {
@@ -179,6 +193,20 @@ func (t *TurnOptimizer) GetBestHold2(roll2 Roll) GameResult {
 	return maxValue2
 }
 
+func (t *TurnOptimizer) GetHold2Outcomes(roll2 Roll) map[Roll]GameResult {
+	possibleHolds := roll2.PossibleHolds()
+	result := make(map[Roll]GameResult, len(possibleHolds))
+	for _, held2 := range possibleHolds {
+		eValue3 := t.expectedResultForHold(t.held2Cache, held2, func(roll3 Roll) GameResult {
+			return t.GetBestFill(roll3)
+		})
+
+		result[held2] = eValue3
+	}
+
+	return result
+}
+
 func (t *TurnOptimizer) GetBestFill(roll Roll) GameResult {
 	best := t.strategy.observable.Copy()
 	for _, box := range t.game.AvailableBoxes() {
@@ -189,6 +217,19 @@ func (t *TurnOptimizer) GetBestFill(roll Roll) GameResult {
 	}
 
 	return best
+}
+
+func (t *TurnOptimizer) GetFillOutcomes(roll Roll) map[Box]GameResult {
+	availableBoxes := t.game.AvailableBoxes()
+	result := make(map[Box]GameResult, len(availableBoxes))
+	for _, box := range availableBoxes {
+		newGame, addedValue := t.game.FillBox(box, roll)
+		expectedRemainingScore := t.strategy.Compute(newGame)
+		expectedPositionValue := expectedRemainingScore.Shift(addedValue)
+		result[box] = expectedPositionValue
+	}
+
+	return result
 }
 
 func (t *TurnOptimizer) expectedResultForHold(heldCache *Cache, held Roll, heldValue func(held Roll) GameResult) GameResult {

@@ -18,8 +18,28 @@ const (
 	Yahtzee
 )
 
+var boxStr = [...]string{
+	"Ones",
+	"Twos",
+	"Threes",
+	"Fours",
+	"Fives",
+	"Sixes",
+	"ThreeOfAKind",
+	"FourOfAKind",
+	"FullHouse",
+	"SmallStraight",
+	"LargeStraight",
+	"Chance",
+	"Yahtzee",
+}
+
 func (b Box) IsUpperHalf() bool {
 	return b <= Sixes
+}
+
+func (b Box) String() string {
+	return boxStr[b]
 }
 
 // BoxScore returns the score that would be received for

@@ -11,6 +11,7 @@ const (
 	UpperHalfBonusThreshold = 63
 	UpperHalfBonus          = 35
 	YahtzeeBonus            = 100
+	MaxScore                = 1500
 )
 
 const (
@@ -82,6 +83,27 @@ func computeAvailableBoxes() [][]Box {
 	return result
 }
 
+func (game GameState) SetBoxFilled(box Box) GameState {
+	return game | (1 << box)
+}
+
+func (game GameState) AddUpperHalfScore(score int) GameState {
+	newGame := game + GameState(score<<shiftUHS)
+
+	// Cap upper half score at bonus threshold since all values > threshold
+	// are equivalent in terms of getting the bonus.
+	prevUHS := game.UpperHalfScore()
+	if prevUHS+score >= UpperHalfBonusThreshold {
+		newGame -= GameState((prevUHS + score - UpperHalfBonusThreshold) << shiftUHS)
+	}
+
+	return newGame
+}
+
+func (game GameState) SetBonusEligible() GameState {
+	return game | (1 << bonusBit)
+}
+
 func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 	if game.BoxFilled(box) {
 		panic(fmt.Errorf("trying to play already filled box %v", box))
@@ -89,22 +111,17 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 		panic(fmt.Errorf("trying to play incomplete roll with %v dice", roll.NumDice()))
 	}
 
-	newGame := game
 	value := box.Score(roll)
 
-	newGame |= (1 << box)
+	newGame := game.SetBoxFilled(box)
 	if box == Yahtzee && value != 0 {
-		newGame |= (1 << bonusBit)
+		newGame = newGame.SetBonusEligible()
 	}
 
 	prevUHS := game.UpperHalfScore()
 	if value != 0 && box.IsUpperHalf() && prevUHS < UpperHalfBonusThreshold {
-		newGame += GameState(value << shiftUHS)
-
-		// Cap upper half score at bonus threshold since all values > threshold
-		// are equivalent in terms of getting the bonus.
-		if prevUHS+value >= UpperHalfBonusThreshold {
-			newGame -= GameState((prevUHS + value - UpperHalfBonusThreshold) << shiftUHS)
+		newGame = newGame.AddUpperHalfScore(value)
+		if newGame.UpperHalfScore() >= UpperHalfBonusThreshold {
 			value += UpperHalfBonus
 		}
 	}
