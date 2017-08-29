@@ -1,11 +1,7 @@
 package yahtzee
 
 import (
-	"bufio"
-	"os"
-
 	"github.com/golang/glog"
-	json "github.com/pquerna/ffjson/ffjson"
 )
 
 // GameResult is an observable to maximize.
@@ -36,58 +32,8 @@ func NewStrategy(observable GameResult) *Strategy {
 	}
 }
 
-func LoadExpectedScoresTable(filename string) (*Strategy, error) {
-	ev := NewExpectedValue()
-	s := NewStrategy(ev)
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		var result struct {
-			Key   uint
-			Value ExpectedValue
-		}
-
-		if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
-			return nil, err
-		}
-
-		s.results.Set(result.Key, result.Value)
-	}
-
-	return s, scanner.Err()
-}
-
-func LoadScoreDistributionsTable(filename string) (*Strategy, error) {
-	obs := NewScoreDistribution()
-	s := NewStrategy(obs)
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		var result struct {
-			Key   uint
-			Value ScoreDistribution
-		}
-
-		if err := json.Unmarshal(scanner.Bytes(), &result); err != nil {
-			return nil, err
-		}
-
-		s.results.Set(result.Key, result.Value)
-	}
-
-	return s, scanner.Err()
+func (s *Strategy) LoadCache(filename string) error {
+	return s.results.LoadFromFile(filename)
 }
 
 func (s *Strategy) SaveToFile(filename string) error {

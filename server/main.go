@@ -191,13 +191,15 @@ func main() {
 	flag.Parse()
 
 	glog.Info("Loading expected scores table")
-	expectedScoreStrat, err := yahtzee.LoadExpectedScoresTable(*expectedScores)
+	expectedScoreStrat := yahtzee.NewStrategy(yahtzee.NewExpectedValue())
+	err := expectedScoreStrat.LoadCache(*expectedScores)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	glog.Info("Loading score distributions table")
-	highScoreStrat, err := yahtzee.LoadScoreDistributionsTable(*scoreDistributions)
+	highScoreStrat := yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
+	err = highScoreStrat.LoadCache(*scoreDistributions)
 	if err != nil {
 		glog.Fatal(err)
 	}

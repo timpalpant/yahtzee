@@ -1,8 +1,14 @@
 package yahtzee
 
 import (
+	"encoding/gob"
 	"fmt"
 )
+
+func init() {
+	gob.Register(ExpectedValue(0))
+	gob.Register(ScoreDistribution{})
+}
 
 // ExpectedValue implements GameResult, and represents
 // maximizing your expected score.

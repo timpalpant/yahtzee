@@ -146,11 +146,14 @@ func main() {
 	var err error
 	if *scoreToBeat > 0 {
 		glog.Info("Loading score distributions table")
-		strat, err = yahtzee.LoadScoreDistributionsTable(*scoreDistributions)
+		strat = yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
+		err = strat.LoadCache(*scoreDistributions)
 	} else {
 		glog.Info("Loading expected scores table")
-		strat, err = yahtzee.LoadExpectedScoresTable(*expectedScores)
+		strat = yahtzee.NewStrategy(yahtzee.NewExpectedValue())
+		err = strat.LoadCache(*expectedScores)
 	}
+
 	if err != nil {
 		fmt.Println(err)
 		return
