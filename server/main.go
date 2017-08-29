@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/NYTimes/gziphandler"
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
@@ -206,6 +207,7 @@ func main() {
 
 	glog.Info("Starting server")
 	server := &YahtzeeServer{highScoreStrat, expectedScoreStrat}
-	http.HandleFunc("/v1/outcome_distribution", server.OutcomeDistribution)
+	http.Handle("/v1/outcome_distribution",
+		gziphandler.GzipHandler(http.HandlerFunc(server.OutcomeDistribution)))
 	glog.Fatal(http.ListenAndServe(":8080", nil))
 }
