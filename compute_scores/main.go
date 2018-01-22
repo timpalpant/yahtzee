@@ -13,7 +13,7 @@ import (
 func main() {
 	observable := flag.String("observable", "expected_value",
 		"Observable to compute (expected_value or score_distribution)")
-	outputFilename := flag.String("output", "scores.txt", "Output filename")
+	outputFilename := flag.String("output", "scores.gob.gz", "Output filename")
 	flag.Parse()
 
 	go func() {

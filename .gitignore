@@ -1,1 +1,4 @@
-compute_scores/computes_scores
+data/
+compute_scores/compute_scores
+pick_a_winner/pick_a_winner
+server/server

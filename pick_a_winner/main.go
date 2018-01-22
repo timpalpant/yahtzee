@@ -103,6 +103,13 @@ func playGame(strat *yahtzee.Strategy, scoreToBeat int) {
 	game := yahtzee.NewGame()
 	var currentScore int
 
+	// If we're trying to beat a score, consider the case where it is no longer
+	// worth playing the game and we should quit and start a new game.
+	p0 := -1.0
+	if scoreToBeat > 0 {
+		p0 = strat.Compute(game).(yahtzee.ScoreDistribution).GetProbability(scoreToBeat)
+	}
+
 	for !game.GameOver() {
 		opt := yahtzee.NewTurnOptimizer(strat, game)
 		roll1 := promptRoll()
@@ -123,8 +130,15 @@ func playGame(strat *yahtzee.Strategy, scoreToBeat int) {
 		var addValue int
 		game, addValue = game.FillBox(box, roll3)
 		currentScore += addValue
-		fmt.Printf("Best option is to play: %v for %v points, final value: %g\n",
-			box, addValue, value)
+		criticalValue := p0 * (1.0 - float64(game.Turn())/float64(yahtzee.NumTurns))
+		if p0 > 0 && value < criticalValue {
+			fmt.Printf("P = %g < %g; best option is to give up and start a new game\n\n",
+				value, criticalValue)
+			return
+		} else {
+			fmt.Printf("Best option is to play: %v for %v points, final value: %g\n",
+				box, addValue, value)
+		}
 	}
 
 	fmt.Printf("Game over! Final score: %v\n", currentScore)
@@ -132,10 +146,10 @@ func playGame(strat *yahtzee.Strategy, scoreToBeat int) {
 
 func main() {
 	expectedScores := flag.String(
-		"expected_scores", "expected-scores.jsonlines",
+		"expected_scores", "data/expected-scores.gob.gz",
 		"File with expected scores to load")
 	scoreDistributions := flag.String(
-		"score_distributions", "score-distributions.jsonlines",
+		"score_distributions", "data/score-distributions.gob.gz",
 		"File with score distributions to load")
 	scoreToBeat := flag.Int(
 		"score_to_beat", -1,
@@ -159,5 +173,7 @@ func main() {
 		return
 	}
 
-	playGame(strat, *scoreToBeat)
+	for {
+		playGame(strat, *scoreToBeat)
+	}
 }

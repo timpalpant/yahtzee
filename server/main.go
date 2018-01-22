@@ -105,7 +105,7 @@ type YahtzeeServer struct {
 	expectedScoreStrat *yahtzee.Strategy
 }
 
-// Probability returns the probability of achieving a certain score
+// OutcomeDistribution returns the probability of achieving a certain score
 // given the current game state.
 func (ys *YahtzeeServer) OutcomeDistribution(w http.ResponseWriter, r *http.Request) {
 	req := &OutcomeDistributionRequest{}
@@ -184,10 +184,10 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 
 func main() {
 	expectedScores := flag.String(
-		"expected_scores", "expected-scores.jsonlines",
+		"expected_scores", "data/expected-scores.gob.gz",
 		"File with expected scores to load")
 	scoreDistributions := flag.String(
-		"score_distributions", "score-distributions.jsonlines",
+		"score_distributions", "data/score-distributions.gob.gz",
 		"File with score distributions to load")
 	flag.Parse()
 
