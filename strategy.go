@@ -49,6 +49,8 @@ func (s *Strategy) Compute(game GameState) GameResult {
 		return s.results.Get(uint(game))
 	}
 
+	// We re-use pre-allocated caches to avoid repeated allocations
+	// during strategy table computation.
 	h1Cache := s.held1Caches[game.Turn()]
 	h1Cache.Reset()
 	h2Cache := s.held2Caches[game.Turn()]
