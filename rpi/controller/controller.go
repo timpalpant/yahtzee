@@ -7,7 +7,24 @@ import (
 	"github.com/stianeikeland/go-rpio"
 )
 
-const buttonPressTime = 50 * time.Millisecond
+const defaultButtonPressDuration = 50 * time.Millisecond
+
+// YahtzeeButton is an enum of the available buttons on the
+// YahtzeeController.
+type YahtzeeButton int
+
+const (
+	Hold1 YahtzeeButton = iota
+	Hold2
+	Hold3
+	Hold4
+	Hold5
+	NewGame
+	Left
+	Right
+	Enter
+	Roll
+)
 
 var DefaultWiringConfig = YahtzeeControllerConfig{
 	HoldButtonPins: [5]int{22, 27, 23, 15, 18},
@@ -31,10 +48,10 @@ func NewButton(pin int) Button {
 	return Button{p}
 }
 
-// Press pushes and releases the button.
-func (btn Button) Press() {
+// Press pushes and releases the button, holding it for the specified duration.
+func (btn Button) Press(d time.Duration) {
 	btn.Low()
-	time.Sleep(buttonPressTime)
+	time.Sleep(d)
 	btn.High()
 }
 
@@ -94,30 +111,62 @@ func (yc *YahtzeeController) Hold(die int) error {
 		return fmt.Errorf("die must be between 0 - %d", len(yc.holdButtons))
 	}
 
-	yc.holdButtons[die].Press()
+	yc.holdButtons[die].Press(defaultButtonPressDuration)
 	return nil
 }
 
 func (yc *YahtzeeController) NewGame() {
-	yc.newGameButton.Press()
+	// NOTE: New game button has to be held down for longer
+	// to be recognized as a press.
+	yc.newGameButton.Press(time.Second)
 }
 
 func (yc *YahtzeeController) Right(n int) {
 	for i := 0; i < n; i++ {
-		yc.rightButton.Press()
+		yc.rightButton.Press(defaultButtonPressDuration)
 	}
 }
 
 func (yc *YahtzeeController) Left(n int) {
 	for i := 0; i < n; i++ {
-		yc.leftButton.Press()
+		yc.leftButton.Press(defaultButtonPressDuration)
 	}
 }
 
 func (yc *YahtzeeController) Enter() {
-	yc.enterButton.Press()
+	yc.enterButton.Press(defaultButtonPressDuration)
 }
 
 func (yc *YahtzeeController) Roll() {
-	yc.rollButton.Press()
+	yc.rollButton.Press(defaultButtonPressDuration)
+}
+
+// Execute the given sequence of button presses.
+func (yc *YahtzeeController) Perform(buttonPressSequence []YahtzeeButton) error {
+	for _, btn := range buttonPressSequence {
+		switch btn {
+		case Hold1:
+			return yc.Hold(0)
+		case Hold2:
+			return yc.Hold(1)
+		case Hold3:
+			return yc.Hold(2)
+		case Hold4:
+			return yc.Hold(3)
+		case Hold5:
+			return yc.Hold(4)
+		case NewGame:
+			yc.NewGame()
+		case Left:
+			yc.Left(1)
+		case Right:
+			yc.Right(1)
+		case Enter:
+			yc.Enter()
+		default:
+			return fmt.Errorf("unsupported button: %v", btn)
+		}
+	}
+
+	return nil
 }

@@ -36,11 +36,11 @@ func main() {
 	fmt.Println("X - Roll")
 	fmt.Println("E - Enter")
 	for i := 1; i <= 5; i++ {
-		fmt.Printf("%d - Hold die %d\n", i)
+		fmt.Printf("%d - Hold die %d\n", i, i)
 	}
 
 	for {
-		choice := prompt("Enter a selection: ")
+		choice := strings.ToUpper(prompt("Enter a selection: "))
 		switch choice {
 		case "N":
 			controller.NewGame()

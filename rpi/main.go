@@ -12,26 +12,34 @@ import (
 )
 
 func main() {
-	scoreDistributions := flag.String(
-		"score_distributions", "../data/score-distributions.gob.gz",
-		"File with score distributions to load")
+	//scoreDistributions := flag.String(
+	//	"score_distributions", "../data/score-distributions.gob.gz",
+	//	"File with score distributions to load")
 	scoreToBeat := flag.Int("score_to_beat", 300, "Score to beat")
 	flag.Parse()
 
 	glog.Info("Loading score distributions table")
 	highScoreStrat := yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
-	err := highScoreStrat.LoadCache(*scoreDistributions)
+	//err := highScoreStrat.LoadCache(*scoreDistributions)
+	//if err != nil {
+	//	glog.Fatal(err)
+	//}
+
+	glog.Info("Initializing webcam detector")
+	detector, err := detector.NewYahtzeeDetector()
 	if err != nil {
 		glog.Fatal(err)
 	}
+	defer detector.Close()
 
-	detector := detector.NewYahtzeeDetector()
+	glog.Info("Initializing GPIO controls")
 	controller, err := controller.NewYahtzeeController(controller.DefaultWiringConfig)
 	if err != nil {
 		glog.Fatal(err)
 	}
 	defer controller.Close()
 
+	glog.Info("Playing game")
 	player := player.NewYahtzeePlayer(detector, controller)
 	player.Play(highScoreStrat, *scoreToBeat)
 }
