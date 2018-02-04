@@ -1,9 +1,5 @@
 package yahtzee
 
-import (
-	"github.com/golang/glog"
-)
-
 // GameResult is an observable to maximize.
 type GameResult interface {
 	Copy() GameResult
@@ -17,7 +13,6 @@ type GameResult interface {
 type Strategy struct {
 	observable GameResult
 	results    *Cache
-	nResults   int
 
 	held1Caches []*Cache
 	held2Caches []*Cache
@@ -65,10 +60,6 @@ func (s *Strategy) Compute(game GameState) GameResult {
 
 	result := opt.GetOptimalTurnOutcome()
 	s.results.Set(uint(game), result)
-	s.nResults++
-	if s.nResults%1000 == 0 {
-		glog.Infof("Computed %v games, current: %v, result: %v", s.nResults, game, result)
-	}
 	return result
 }
 

@@ -7,6 +7,15 @@ import (
 	"github.com/stianeikeland/go-rpio"
 )
 
+var DefaultWiringConfig = YahtzeeControllerConfig{
+	HoldButtonPins: [5]int{22, 27, 23, 15, 18},
+	NewGamePin:     14,
+	RollPin:        4,
+	LeftPin:        10,
+	RightPin:       9,
+	EnterPin:       11,
+}
+
 // Button represents a single button on the electronic
 // hand-held Yahtzee game.
 type Button struct {
@@ -47,7 +56,12 @@ type YahtzeeController struct {
 	enterButton   Button
 }
 
-func NewYahtzeeController(config YahtzeeControllerConfig) *YahtzeeController {
+func NewYahtzeeController(config YahtzeeControllerConfig) (*YahtzeeController, error) {
+	err := rpio.Open()
+	if err != nil {
+		return nil, err
+	}
+
 	controller := &YahtzeeController{
 		holdButtons: [5]Button{
 			NewButton(config.HoldButtonPins[0]),
@@ -70,7 +84,11 @@ func NewYahtzeeController(config YahtzeeControllerConfig) *YahtzeeController {
 	controller.rollButton.Output()
 	controller.enterButton.Output()
 
-	return controller
+	return controller, nil
+}
+
+func (yc *YahtzeeController) Close() {
+	rpio.Close()
 }
 
 func (yc *YahtzeeController) Hold(die int) error {
@@ -100,4 +118,8 @@ func (yc *YahtzeeController) Left(n int) {
 
 func (yc *YahtzeeController) Enter() {
 	yc.enterButton.Press()
+}
+
+func (yc *YahtzeeController) Roll() {
+	yc.rollButton.Press()
 }
