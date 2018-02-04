@@ -67,7 +67,7 @@ func main() {
 				continue
 			}
 
-			if err := controller.Hold(die); err != nil {
+			if err := controller.Hold(die-1); err != nil {
 				fmt.Println(err)
 			}
 		default:
