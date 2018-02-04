@@ -7,6 +7,8 @@ import (
 	"github.com/stianeikeland/go-rpio"
 )
 
+const buttonPressTime = 50 * time.Millisecond
+
 var DefaultWiringConfig = YahtzeeControllerConfig{
 	HoldButtonPins: [5]int{22, 27, 23, 15, 18},
 	NewGamePin:     14,
@@ -23,14 +25,17 @@ type Button struct {
 }
 
 func NewButton(pin int) Button {
-	return Button{rpio.Pin(pin)}
+	p := rpio.Pin(pin)
+	p.Output()
+	p.High()  // Relays are normally-open.
+	return Button{p}
 }
 
 // Press pushes and releases the button.
 func (btn Button) Press() {
-	btn.High()
-	time.Sleep(50 * time.Millisecond)
 	btn.Low()
+	time.Sleep(buttonPressTime)
+	btn.High()
 }
 
 // YahtzeeControllerConfig configures the mapping between GPIO
@@ -76,13 +81,6 @@ func NewYahtzeeController(config YahtzeeControllerConfig) (*YahtzeeController, e
 		rightButton:   NewButton(config.RightPin),
 		enterButton:   NewButton(config.EnterPin),
 	}
-
-	for _, btn := range controller.holdButtons {
-		btn.Output()
-	}
-	controller.newGameButton.Output()
-	controller.rollButton.Output()
-	controller.enterButton.Output()
 
 	return controller, nil
 }
