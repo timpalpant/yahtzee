@@ -1,4 +1,4 @@
-package motor
+package controller
 
 import (
 	"fmt"
@@ -9,7 +9,13 @@ import (
 
 // Button represents a single button on the electronic
 // hand-held Yahtzee game.
-type Button rpio.Pin
+type Button struct {
+	rpio.Pin
+}
+
+func NewButton(pin int) Button {
+	return Button{rpio.Pin(pin)}
+}
 
 // Press pushes and releases the button.
 func (btn Button) Press() {
@@ -24,37 +30,37 @@ func (btn Button) Press() {
 // for more information.
 type YahtzeeControllerConfig struct {
 	HoldButtonPins [5]int
-	NewGamePin int
-	RollPin int
-	LeftPin int
-	RightPin int
-	EnterPin int
+	NewGamePin     int
+	RollPin        int
+	LeftPin        int
+	RightPin       int
+	EnterPin       int
 }
 
 // YahtzeeController encapsulates the behavior used to control the Yahtzee game.
 type YahtzeeController struct {
-	holdButtons [5]Button
+	holdButtons   [5]Button
 	newGameButton Button
-	rollButton Button
-	leftButton Button
-	rightButton Button
-	enterButton Button
+	rollButton    Button
+	leftButton    Button
+	rightButton   Button
+	enterButton   Button
 }
 
 func NewYahtzeeController(config YahtzeeControllerConfig) *YahtzeeController {
 	controller := &YahtzeeController{
 		holdButtons: [5]Button{
-			Button(config.HoldButtonPins[0]),
-			Button(config.HoldButtonPins[1]),
-			Button(config.HoldButtonPins[2]),
-			Button(config.HoldButtonPins[3]),
-			Button(config.HoldButtonPins[4]),
-		}
-		newGameButton: rpio.Pin(config.NewGamePin),
-		rollButton: rpio.Pin(config.RollPin),
-		leftButton: rpio.Pin(config.LeftPin),
-		rightButton: rpio.Pin(config.RightPin),
-		enterButton: rpio.Pin(config.EnterPin),
+			NewButton(config.HoldButtonPins[0]),
+			NewButton(config.HoldButtonPins[1]),
+			NewButton(config.HoldButtonPins[2]),
+			NewButton(config.HoldButtonPins[3]),
+			NewButton(config.HoldButtonPins[4]),
+		},
+		newGameButton: NewButton(config.NewGamePin),
+		rollButton:    NewButton(config.RollPin),
+		leftButton:    NewButton(config.LeftPin),
+		rightButton:   NewButton(config.RightPin),
+		enterButton:   NewButton(config.EnterPin),
 	}
 
 	for _, btn := range controller.holdButtons {
@@ -73,6 +79,7 @@ func (yc *YahtzeeController) Hold(die int) error {
 	}
 
 	yc.holdButtons[die].Press()
+	return nil
 }
 
 func (yc *YahtzeeController) NewGame() {

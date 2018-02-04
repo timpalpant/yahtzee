@@ -9,10 +9,16 @@ import (
 	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/rpi/controller"
 	"github.com/timpalpant/yahtzee/rpi/detector"
+	"github.com/timpalpant/yahtzee/rpi/player"
 )
 
-var wiringConfig = &controller.YahtzeeControllerConfig{
-
+var wiringConfig = controller.YahtzeeControllerConfig{
+	HoldButtonPins: [5]int{22, 27, 23, 15, 18},
+	NewGamePin:     14,
+	RollPin:        4,
+	LeftPin:        10,
+	RightPin:       9,
+	EnterPin:       11,
 }
 
 func main() {
@@ -35,7 +41,7 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	detector := detector.NewDetector()
+	detector := detector.NewYahtzeeDetector()
 	controller := controller.NewYahtzeeController(wiringConfig)
 	player := player.NewYahtzeePlayer(detector, controller)
 	player.Play(highScoreStrat, *scoreToBeat)

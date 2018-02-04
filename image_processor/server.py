@@ -31,7 +31,7 @@ def process_image():
     try:
         req = flask.request.get_json(force=True)
         buf = base64.b64decode(req["image"], validate=True)
-        a = skimage.io.imread(io.BytesIO(buf))
+        a = skimage.io.imread(io.BytesIO(buf), as_grey=True)
     except Exception as e:
         resp = flask.make_response(str(e), 400)
         flask.abort(resp)
