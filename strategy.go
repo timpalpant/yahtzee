@@ -95,10 +95,7 @@ func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 func (t *TurnOptimizer) GetBestHold1(roll1 Roll) GameResult {
 	maxValue1 := t.strategy.observable.Copy()
 	for _, held1 := range roll1.PossibleHolds() {
-		eValue2 := t.expectedResultForHold(t.held1Cache, held1, func(roll2 Roll) GameResult {
-			return t.GetBestHold2(roll2)
-		})
-
+		eValue2 := t.expectedResultForHold(t.held1Cache, held1, t.GetBestHold2)
 		maxValue1 = maxValue1.Max(eValue2)
 	}
 
@@ -109,11 +106,7 @@ func (t *TurnOptimizer) GetHold1Outcomes(roll1 Roll) map[Roll]GameResult {
 	possibleHolds := roll1.PossibleHolds()
 	result := make(map[Roll]GameResult, len(possibleHolds))
 	for _, held1 := range possibleHolds {
-		eValue2 := t.expectedResultForHold(t.held1Cache, held1, func(roll2 Roll) GameResult {
-			return t.GetBestHold2(roll2)
-		})
-
-		result[held1] = eValue2
+		result[held1] = t.expectedResultForHold(t.held1Cache, held1, t.GetBestHold2)
 	}
 
 	return result
@@ -122,10 +115,7 @@ func (t *TurnOptimizer) GetHold1Outcomes(roll1 Roll) map[Roll]GameResult {
 func (t *TurnOptimizer) GetBestHold2(roll2 Roll) GameResult {
 	maxValue2 := t.strategy.observable.Copy()
 	for _, held2 := range roll2.PossibleHolds() {
-		eValue3 := t.expectedResultForHold(t.held2Cache, held2, func(roll3 Roll) GameResult {
-			return t.GetBestFill(roll3)
-		})
-
+		eValue3 := t.expectedResultForHold(t.held2Cache, held2, t.GetBestFill)
 		maxValue2 = maxValue2.Max(eValue3)
 	}
 
@@ -136,11 +126,7 @@ func (t *TurnOptimizer) GetHold2Outcomes(roll2 Roll) map[Roll]GameResult {
 	possibleHolds := roll2.PossibleHolds()
 	result := make(map[Roll]GameResult, len(possibleHolds))
 	for _, held2 := range possibleHolds {
-		eValue3 := t.expectedResultForHold(t.held2Cache, held2, func(roll3 Roll) GameResult {
-			return t.GetBestFill(roll3)
-		})
-
-		result[held2] = eValue3
+		result[held2] = t.expectedResultForHold(t.held2Cache, held2, t.GetBestFill)
 	}
 
 	return result
