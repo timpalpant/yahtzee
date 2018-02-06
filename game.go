@@ -61,6 +61,7 @@ func (game GameState) UpperHalfScore() int {
 	return int(game >> shiftUHS)
 }
 
+// Statically pre-computed set of available boxes for each game.
 var availableBoxes = computeAvailableBoxes()
 
 func (game GameState) AvailableBoxes() []Box {

@@ -2,15 +2,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
-
 	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/server"
 )
 
 var stdin = bufio.NewReader(os.Stdin)
@@ -59,85 +61,83 @@ func promptRoll() yahtzee.Roll {
 	}
 }
 
-func grValue(currentScore int, gr yahtzee.GameResult, scoreToBeat int) float64 {
-	switch gr := gr.(type) {
-	case yahtzee.ExpectedValue:
-		return float64(gr) + float64(currentScore)
-	case yahtzee.ScoreDistribution:
-		return gr.GetProbability(scoreToBeat)
+func getOptimalMove(uri string, game yahtzee.GameState, step server.TurnStep, roll yahtzee.Roll, scoreToBeat int) (*server.OptimalMoveResponse, error) {
+	req := &server.OptimalMoveRequest{
+		GameState: server.FromYahtzeeGameState(game),
+		TurnState: server.TurnState{
+			Step: step,
+			Dice: roll.Dice(),
+		},
+		ScoreToBeat: scoreToBeat,
 	}
 
-	panic("Unknown game result type")
-}
-
-func bestHold(currentScore int, outcomes map[yahtzee.Roll]yahtzee.GameResult, scoreToBeat int) (yahtzee.Roll, float64) {
-	var best yahtzee.Roll
-	var bestValue float64
-	for hold, gr := range outcomes {
-		value := grValue(currentScore, gr, scoreToBeat)
-		if value >= bestValue {
-			best = hold
-			bestValue = value
-		}
+	b := new(bytes.Buffer)
+	enc := json.NewEncoder(b)
+	if err := enc.Encode(req); err != nil {
+		return nil, err
 	}
 
-	return best, bestValue
-}
+	endpoint := uri + "/rest/v1/optimal_move"
+	resp, err := http.Post(endpoint, "application/json; charset=utf-8", b)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-func bestBox(currentScore int, outcomes map[yahtzee.Box]yahtzee.GameResult, scoreToBeat int) (yahtzee.Box, float64) {
-	var best yahtzee.Box
-	var bestValue float64
-	for box, gr := range outcomes {
-		value := grValue(currentScore, gr, scoreToBeat)
-		if value >= bestValue {
-			best = box
-			bestValue = value
-		}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request returned: %v", resp.Status)
 	}
 
-	return best, bestValue
+	result := &server.OptimalMoveResponse{}
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(result); err != nil {
+		return nil, err
+	}
+
+	return result, err
 }
 
-func playGame(strat *yahtzee.Strategy, scoreToBeat int) {
+func playGame(uri string, scoreToBeat int) {
 	fmt.Println("Welcome to YAHTZEE!")
 	game := yahtzee.NewGame()
 	var currentScore int
 
-	// If we're trying to beat a score, consider the case where it is no longer
-	// worth playing the game and we should quit and start a new game.
-	p0 := -1.0
-	if scoreToBeat > 0 {
-		p0 = strat.Compute(game).(yahtzee.ScoreDistribution).GetProbability(scoreToBeat)
-	}
-
 	for !game.GameOver() {
-		opt := yahtzee.NewTurnOptimizer(strat, game)
 		roll1 := promptRoll()
-		hold1Outcomes := opt.GetHold1Outcomes(roll1)
-		bestHold1, value := bestHold(currentScore, hold1Outcomes, scoreToBeat)
+		resp1, err := getOptimalMove(uri, game, server.Hold1, roll1, scoreToBeat)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 		fmt.Printf("Best option is to hold: %v, value: %g\n",
-			bestHold1, value)
+			resp1.HeldDice, resp1.Value)
 
 		roll2 := promptRoll()
-		hold2Outcomes := opt.GetHold2Outcomes(roll2)
-		bestHold2, value := bestHold(currentScore, hold2Outcomes, scoreToBeat)
+		resp2, err := getOptimalMove(uri, game, server.Hold2, roll2, scoreToBeat)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 		fmt.Printf("Best option is to hold: %v, value: %g\n",
-			bestHold2, value)
+			resp2.HeldDice, resp2.Value)
 
 		roll3 := promptRoll()
-		fillOutcomes := opt.GetFillOutcomes(roll3)
-		box, value := bestBox(currentScore, fillOutcomes, scoreToBeat)
+		resp3, err := getOptimalMove(uri, game, server.FillBox, roll3, scoreToBeat)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		box := yahtzee.Box(resp3.BoxFilled)
 		var addValue int
 		game, addValue = game.FillBox(box, roll3)
 		currentScore += addValue
-		criticalValue := p0 * (1.0 - float64(game.Turn())/float64(yahtzee.NumTurns))
-		if p0 > 0 && value < criticalValue {
-			fmt.Printf("P = %g < %g; best option is to give up and start a new game\n\n",
-				value, criticalValue)
+		if resp3.NewGame {
+			fmt.Printf("P = %g; best option is to give up and start a new game\n\n", resp3.Value)
 			return
 		} else {
 			fmt.Printf("Best option is to play: %v for %v points, final value: %g\n",
-				box, addValue, value)
+				box, addValue, resp3.Value)
 		}
 	}
 
@@ -145,35 +145,11 @@ func playGame(strat *yahtzee.Strategy, scoreToBeat int) {
 }
 
 func main() {
-	expectedScores := flag.String(
-		"expected_scores", "data/expected-scores.gob.gz",
-		"File with expected scores to load")
-	scoreDistributions := flag.String(
-		"score_distributions", "data/score-distributions.gob.gz",
-		"File with score distributions to load")
-	scoreToBeat := flag.Int(
-		"score_to_beat", -1,
-		"High score to beat")
+	uri := flag.String("uri", "http://localhost:8080", "URI of Yahtzee server")
+	scoreToBeat := flag.Int("score_to_beat", 0, "High score to try to beat")
 	flag.Parse()
 
-	var strat *yahtzee.Strategy
-	var err error
-	if *scoreToBeat > 0 {
-		glog.Info("Loading score distributions table")
-		strat = yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
-		err = strat.LoadCache(*scoreDistributions)
-	} else {
-		glog.Info("Loading expected scores table")
-		strat = yahtzee.NewStrategy(yahtzee.NewExpectedValue())
-		err = strat.LoadCache(*expectedScores)
-	}
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
 	for {
-		playGame(strat, *scoreToBeat)
+		playGame(*uri, *scoreToBeat)
 	}
 }

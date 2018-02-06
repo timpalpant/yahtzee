@@ -7,9 +7,25 @@ import (
 // GameState represents the current state of the game at the beginning
 // of the turn.
 type GameState struct {
-	Filled               [13]bool
+	Filled               []bool
 	YahtzeeBonusEligible bool
 	UpperHalfScore       int
+}
+
+func FromYahtzeeGameState(game yahtzee.GameState) GameState {
+	filled := make([]bool, yahtzee.NumTurns)
+	for i := range filled {
+		filled[i] = true
+	}
+	for _, box := range game.AvailableBoxes() {
+		filled[int(box)] = false
+	}
+
+	return GameState{
+		Filled:               filled,
+		YahtzeeBonusEligible: game.BonusEligible(),
+		UpperHalfScore:       game.UpperHalfScore(),
+	}
 }
 
 func (gs GameState) ToYahtzeeGameState() yahtzee.GameState {
@@ -40,7 +56,34 @@ const (
 // In all cases, Dice are the current 5 dice after the previous roll.
 type TurnState struct {
 	Step TurnStep
-	Dice [5]int
+	Dice []int
+}
+
+// OptimalMoveRequest gets the best move to make given the current
+// turn state.
+type OptimalMoveRequest struct {
+	GameState GameState
+	TurnState TurnState
+
+	// If ScoreToBeat is provided, then the result will be the move
+	// that maximizes the probability of achieving a final score
+	// greater than the given score.
+	ScoreToBeat int
+}
+
+// Optimal move response returns the best move to make.
+type OptimalMoveResponse struct {
+	// HeldDice are returned if the TurnState of the request is
+	// Hold1 or Hold2.
+	HeldDice []int
+	// BoxFilled is returned if the TurnState of the request is FillBox.
+	BoxFilled int
+	// NewGame is set if the optimal move is to quit and start a new game.
+	NewGame bool
+	// Value is the value attributed to this move.
+	// For expected value, it is the expected remaining value.
+	// For ScoreToBeat, it is the probability of beating the score.
+	Value float64
 }
 
 // OutcomeDistributionRequest gets the range of possible outcomes

@@ -30,6 +30,27 @@ func (ys *YahtzeeServer) Index(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, struct{}{})
 }
 
+func (ys *YahtzeeServer) OptimalMove(w http.ResponseWriter, r *http.Request) {
+	req := &OptimalMoveRequest{}
+	err := json.NewDecoder(r.Body).Decode(req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	resp, err := ys.getOptimalMove(req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		glog.Warning(err)
+	}
+}
+
 // OutcomeDistribution returns the probability of achieving a certain score
 // given the current game state.
 func (ys *YahtzeeServer) OutcomeDistribution(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +100,50 @@ func formatFillChoices(expectedScores map[yahtzee.Box]yahtzee.GameResult,
 	return fillChoices
 }
 
+func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveResponse, error) {
+	game := req.GameState.ToYahtzeeGameState()
+	roll := asRoll(req.TurnState.Dice)
+	glog.Infof("Computing optimal move for game: %v, roll: %v", game, roll)
+
+	var opt *yahtzee.TurnOptimizer
+	if req.ScoreToBeat > 0 {
+		opt = yahtzee.NewTurnOptimizer(ys.highScoreStrat, game)
+	} else {
+		opt = yahtzee.NewTurnOptimizer(ys.expectedScoreStrat, game)
+	}
+
+	resp := &OptimalMoveResponse{}
+	switch req.TurnState.Step {
+	case Hold1:
+		outcomes := opt.GetHold1Outcomes(roll)
+		hold, score := bestHold(outcomes, req.ScoreToBeat)
+		resp.HeldDice = hold.Dice()
+		resp.Value = score
+	case Hold2:
+		outcomes := opt.GetHold2Outcomes(roll)
+		hold, score := bestHold(outcomes, req.ScoreToBeat)
+		resp.HeldDice = hold.Dice()
+		resp.Value = score
+	case FillBox:
+		outcomes := opt.GetFillOutcomes(roll)
+		fill, score := bestBox(outcomes, req.ScoreToBeat)
+		resp.BoxFilled = int(fill)
+		resp.Value = score
+
+		// Check whether we should give up and start a new game.
+		if req.ScoreToBeat > 0 {
+			p0Result := ys.highScoreStrat.Compute(yahtzee.NewGame())
+			p0 := p0Result.(yahtzee.ScoreDistribution).GetProbability(req.ScoreToBeat)
+			criticalValue := p0 * (1.0 - float64(game.Turn()+1)/float64(yahtzee.NumTurns))
+			resp.NewGame = (resp.Value < criticalValue)
+		}
+	default:
+		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
+	}
+
+	return resp, nil
+}
+
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
 	game := req.GameState.ToYahtzeeGameState()
 	roll := asRoll(req.TurnState.Dice)
@@ -107,7 +172,7 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 	return resp, nil
 }
 
-func asRoll(dice [5]int) yahtzee.Roll {
+func asRoll(dice []int) yahtzee.Roll {
 	r := yahtzee.NewRoll()
 	for _, die := range dice {
 		r = r.Add(die)
@@ -124,4 +189,43 @@ func asDistribution(gr yahtzee.GameResult) []float64 {
 	}
 
 	return result
+}
+
+func gameResultValue(gr yahtzee.GameResult, scoreToBeat int) float64 {
+	switch gr := gr.(type) {
+	case yahtzee.ExpectedValue:
+		return float64(gr)
+	case yahtzee.ScoreDistribution:
+		return gr.GetProbability(scoreToBeat)
+	}
+
+	panic("Unknown game result type")
+}
+
+func bestHold(outcomes map[yahtzee.Roll]yahtzee.GameResult, scoreToBeat int) (yahtzee.Roll, float64) {
+	var best yahtzee.Roll
+	var bestValue float64
+	for hold, gr := range outcomes {
+		value := gameResultValue(gr, scoreToBeat)
+		if value >= bestValue {
+			best = hold
+			bestValue = value
+		}
+	}
+
+	return best, bestValue
+}
+
+func bestBox(outcomes map[yahtzee.Box]yahtzee.GameResult, scoreToBeat int) (yahtzee.Box, float64) {
+	var best yahtzee.Box
+	var bestValue float64
+	for box, gr := range outcomes {
+		value := gameResultValue(gr, scoreToBeat)
+		if value >= bestValue {
+			best = box
+			bestValue = value
+		}
+	}
+
+	return best, bestValue
 }
