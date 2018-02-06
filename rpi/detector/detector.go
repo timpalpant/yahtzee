@@ -44,5 +44,54 @@ func (d *YahtzeeDetector) GetCurrentRoll() (yahtzee.Roll, error) {
 		return yahtzee.NewRoll(), err
 	}
 
-	return yahtzee.NewRollFromDice([]int{1, 2, 3, 4, 5}), nil
+	// TODO: Implement image extraction of dice.
+	// For now, they have to be entered manually.
+	roll := promptRoll()
+	return roll, nil
+}
+
+var stdin = bufio.NewReader(os.Stdin)
+
+func prompt(msg string) string {
+	fmt.Print(msg)
+	result, err := stdin.ReadString('\n')
+	if err != nil {
+		panic(err)
+	}
+
+	return strings.TrimRight(result, "\n")
+}
+
+func parseRoll(s string) (yahtzee.Roll, error) {
+	roll := yahtzee.NewRoll()
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return roll, err
+	}
+
+	for ; i > 0; i /= 10 {
+		die := i % 10
+		roll = roll.Add(die)
+	}
+
+	if roll.NumDice() != yahtzee.NDice {
+		return roll, fmt.Errorf("Invalid number of dice: %v != %v",
+			roll.NumDice(), yahtzee.NDice)
+	}
+
+	return roll, nil
+}
+
+func promptRoll() yahtzee.Roll {
+	for {
+		rollStr := prompt("Enter roll: ")
+		roll, err := parseRoll(rollStr)
+		if err != nil {
+			fmt.Printf("Invalid roll: %v\n", err)
+			continue
+		}
+
+		return roll
+	}
 }
