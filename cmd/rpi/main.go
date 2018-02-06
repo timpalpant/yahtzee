@@ -12,18 +12,9 @@ import (
 )
 
 func main() {
-	//scoreDistributions := flag.String(
-	//	"score_distributions", "../data/score-distributions.gob.gz",
-	//	"File with score distributions to load")
-	scoreToBeat := flag.Int("score_to_beat", 300, "Score to beat")
+	uri := flag.String("uri", "http://localhost:8080", "URI of Yahtzee server")
+	scoreToBeat := flag.Int("score_to_beat", 0, "Score to beat (if 0, maximize expected score)")
 	flag.Parse()
-
-	glog.Info("Loading score distributions table")
-	highScoreStrat := yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
-	//err := highScoreStrat.LoadCache(*scoreDistributions)
-	//if err != nil {
-	//	glog.Fatal(err)
-	//}
 
 	glog.Info("Initializing webcam detector")
 	detector, err := detector.NewYahtzeeDetector()

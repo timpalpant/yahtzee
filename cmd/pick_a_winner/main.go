@@ -2,16 +2,14 @@ package main
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/client"
 	"github.com/timpalpant/yahtzee/server"
 )
 
@@ -61,50 +59,15 @@ func promptRoll() yahtzee.Roll {
 	}
 }
 
-func getOptimalMove(uri string, game yahtzee.GameState, step server.TurnStep, roll yahtzee.Roll, scoreToBeat int) (*server.OptimalMoveResponse, error) {
-	req := &server.OptimalMoveRequest{
-		GameState: server.FromYahtzeeGameState(game),
-		TurnState: server.TurnState{
-			Step: step,
-			Dice: roll.Dice(),
-		},
-		ScoreToBeat: scoreToBeat,
-	}
-
-	b := new(bytes.Buffer)
-	enc := json.NewEncoder(b)
-	if err := enc.Encode(req); err != nil {
-		return nil, err
-	}
-
-	endpoint := uri + "/rest/v1/optimal_move"
-	resp, err := http.Post(endpoint, "application/json; charset=utf-8", b)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request returned: %v", resp.Status)
-	}
-
-	result := &server.OptimalMoveResponse{}
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(result); err != nil {
-		return nil, err
-	}
-
-	return result, err
-}
-
 func playGame(uri string, scoreToBeat int) {
 	fmt.Println("Welcome to YAHTZEE!")
+	client := client.NewClient(uri)
 	game := yahtzee.NewGame()
 	var currentScore int
 
 	for !game.GameOver() {
 		roll1 := promptRoll()
-		resp1, err := getOptimalMove(uri, game, server.Hold1, roll1, scoreToBeat)
+		resp1, err := client.GetOptimalMove(game, server.Hold1, roll1, scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -113,7 +76,7 @@ func playGame(uri string, scoreToBeat int) {
 			resp1.HeldDice, resp1.Value)
 
 		roll2 := promptRoll()
-		resp2, err := getOptimalMove(uri, game, server.Hold2, roll2, scoreToBeat)
+		resp2, err := client.GetOptimalMove(game, server.Hold2, roll2, scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -122,7 +85,7 @@ func playGame(uri string, scoreToBeat int) {
 			resp2.HeldDice, resp2.Value)
 
 		roll3 := promptRoll()
-		resp3, err := getOptimalMove(uri, game, server.FillBox, roll3, scoreToBeat)
+		resp3, err := client.GetOptimalMove(game, server.FillBox, roll3, scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue
