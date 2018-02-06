@@ -114,17 +114,17 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 	resp := &OptimalMoveResponse{}
 	switch req.TurnState.Step {
-	case Hold1:
+	case yahtzee.Hold1:
 		outcomes := opt.GetHold1Outcomes(roll)
 		hold, score := bestHold(outcomes, req.ScoreToBeat)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
-	case Hold2:
+	case yahtzee.Hold2:
 		outcomes := opt.GetHold2Outcomes(roll)
 		hold, score := bestHold(outcomes, req.ScoreToBeat)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
-	case FillBox:
+	case yahtzee.FillBox:
 		outcomes := opt.GetFillOutcomes(roll)
 		fill, score := bestBox(outcomes, req.ScoreToBeat)
 		resp.BoxFilled = int(fill)
@@ -153,15 +153,15 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 
 	resp := &OutcomeDistributionResponse{}
 	switch req.TurnState.Step {
-	case Hold1:
+	case yahtzee.Hold1:
 		expectedScores := esOpt.GetHold1Outcomes(roll)
 		scoreDistributions := hsOpt.GetHold1Outcomes(roll)
 		resp.HoldChoices = formatHoldChoices(expectedScores, scoreDistributions)
-	case Hold2:
+	case yahtzee.Hold2:
 		expectedScores := esOpt.GetHold2Outcomes(roll)
 		scoreDistributions := hsOpt.GetHold2Outcomes(roll)
 		resp.HoldChoices = formatHoldChoices(expectedScores, scoreDistributions)
-	case FillBox:
+	case yahtzee.FillBox:
 		expectedScores := esOpt.GetFillOutcomes(roll)
 		scoreDistributions := hsOpt.GetFillOutcomes(roll)
 		resp.FillChoices = formatFillChoices(expectedScores, scoreDistributions)

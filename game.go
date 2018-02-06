@@ -157,3 +157,11 @@ func nativeUpperHalfBox(yahtzeeRoll Roll) Box {
 	side := yahtzeeRoll.One()
 	return Box(side - 1)
 }
+
+type TurnStep int
+
+const (
+	Hold1 TurnStep = iota
+	Hold2
+	FillBox
+)

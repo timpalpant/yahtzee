@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/blackjack/webcam"
+
+	"github.com/timpalpant/yahtzee"
 )
 
 const frameWaitTimeout = time.Second
-
-type Roll [5]int
 
 type YahtzeeDetector struct {
 	cam *webcam.Webcam
@@ -33,19 +33,16 @@ func (d *YahtzeeDetector) Close() error {
 	return d.cam.Close()
 }
 
-func (d *YahtzeeDetector) GetCurrentRoll() (Roll, error) {
+func (d *YahtzeeDetector) GetCurrentRoll() (yahtzee.Roll, error) {
 	err := d.cam.WaitForFrame(uint32(frameWaitTimeout.Seconds()))
 	if err != nil {
-		return Roll{}, err
+		return yahtzee.NewRoll(), err
 	}
-
 
 	frame, err := d.cam.ReadFrame()
 	if err != nil {
-		return Roll{}, err
+		return yahtzee.NewRoll(), err
 	}
 
-	fmt.Println(frame)
-
-	return Roll{1, 2, 3, 4, 5}, nil
+	return yahtzee.NewRollFromDice([]int{1, 2, 3, 4, 5}), nil
 }

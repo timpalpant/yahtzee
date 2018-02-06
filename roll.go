@@ -51,6 +51,16 @@ func NewRollOfDie(die, count int) Roll {
 	return Roll(count << (uint(die-1) * bitsPerSide))
 }
 
+// Construct a new Roll from the given dice.
+func NewRollFromDice(dice []int) Roll {
+	r := NewRoll()
+	for _, die := range dice {
+		r += NewRollOfDie(die, 1)
+	}
+
+	return r
+}
+
 // Return a new Roll constructed by adding the given die to this one.
 func (r Roll) Add(die int) Roll {
 	return r + NewRollOfDie(die, 1)

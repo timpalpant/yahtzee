@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/stianeikeland/go-rpio"
 )
 
@@ -44,7 +45,7 @@ type Button struct {
 func NewButton(pin int) Button {
 	p := rpio.Pin(pin)
 	p.Output()
-	p.High()  // Relays are normally-open.
+	p.High() // Relays are normally-open.
 	return Button{p}
 }
 
@@ -111,6 +112,7 @@ func (yc *YahtzeeController) Hold(die int) error {
 		return fmt.Errorf("die must be between 0 - %d", len(yc.holdButtons))
 	}
 
+	glog.V(1).Infof("Holding %v", die)
 	yc.holdButtons[die].Press(defaultButtonPressDuration)
 	return nil
 }
@@ -118,26 +120,31 @@ func (yc *YahtzeeController) Hold(die int) error {
 func (yc *YahtzeeController) NewGame() {
 	// NOTE: New game button has to be held down for longer
 	// to be recognized as a press.
+	glog.V(1).Infof("Pressing new game")
 	yc.newGameButton.Press(time.Second)
 }
 
 func (yc *YahtzeeController) Right(n int) {
+	glog.V(1).Infof("Moving right %v", n)
 	for i := 0; i < n; i++ {
 		yc.rightButton.Press(defaultButtonPressDuration)
 	}
 }
 
 func (yc *YahtzeeController) Left(n int) {
+	glog.V(1).Infof("Moving left %v", n)
 	for i := 0; i < n; i++ {
 		yc.leftButton.Press(defaultButtonPressDuration)
 	}
 }
 
 func (yc *YahtzeeController) Enter() {
+	glog.V(1).Infof("Pressing enter")
 	yc.enterButton.Press(defaultButtonPressDuration)
 }
 
 func (yc *YahtzeeController) Roll() {
+	glog.V(1).Infof("Pressing roll")
 	yc.rollButton.Press(defaultButtonPressDuration)
 }
 

@@ -6,15 +6,18 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/client"
+	"github.com/timpalpant/yahtzee/rpi"
 	"github.com/timpalpant/yahtzee/rpi/controller"
 	"github.com/timpalpant/yahtzee/rpi/detector"
-	"github.com/timpalpant/yahtzee/rpi/player"
 )
 
 func main() {
 	uri := flag.String("uri", "http://localhost:8080", "URI of Yahtzee server")
 	scoreToBeat := flag.Int("score_to_beat", 0, "Score to beat (if 0, maximize expected score)")
 	flag.Parse()
+
+	client := client.NewClient(*uri)
 
 	glog.Info("Initializing webcam detector")
 	detector, err := detector.NewYahtzeeDetector()
@@ -30,7 +33,11 @@ func main() {
 	}
 	defer controller.Close()
 
-	glog.Info("Playing game")
-	player := player.NewYahtzeePlayer(detector, controller)
-	player.Play(highScoreStrat, *scoreToBeat)
+	for {
+		glog.Info("Playing game")
+		player := rpi.NewYahtzeePlayer(detector, client, controller)
+		if err := player.Play(*scoreToBeat); err != nil {
+			panic(err)
+		}
+	}
 }

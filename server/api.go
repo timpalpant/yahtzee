@@ -44,18 +44,10 @@ func (gs GameState) ToYahtzeeGameState() yahtzee.GameState {
 	return game
 }
 
-type TurnStep int
-
-const (
-	Hold1 TurnStep = iota
-	Hold2
-	FillBox
-)
-
 // TurnState represents the current progress through a turn.
 // In all cases, Dice are the current 5 dice after the previous roll.
 type TurnState struct {
-	Step TurnStep
+	Step yahtzee.TurnStep
 	Dice []int
 }
 
