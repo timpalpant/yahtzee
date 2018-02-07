@@ -1,15 +1,26 @@
 package detector
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/blackjack/webcam"
+	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
 )
 
-const frameWaitTimeout = time.Second
+const (
+	frameWaitTimeout = time.Second
+
+	mJPGPixelFormat = webcam.PixelFormat(1196444237)
+	imageWidth = 1280
+	imageHeight = 960
+)
 
 type YahtzeeDetector struct {
 	cam *webcam.Webcam
@@ -19,6 +30,13 @@ func NewYahtzeeDetector() (*YahtzeeDetector, error) {
 	cam, err := webcam.Open("/dev/video0") // Open webcam
 	if err != nil {
 		return nil, err
+	}
+
+	_, w, h, err := cam.SetImageFormat(mJPGPixelFormat, imageWidth, imageHeight)
+	if err != nil {
+		return nil, err
+	} else {
+		glog.Infof("Webcam image format: %dx%d", w, h)
 	}
 
 	err = cam.StartStreaming()
@@ -39,7 +57,7 @@ func (d *YahtzeeDetector) GetCurrentRoll() (yahtzee.Roll, error) {
 		return yahtzee.NewRoll(), err
 	}
 
-	frame, err := d.cam.ReadFrame()
+	_, err = d.cam.ReadFrame()
 	if err != nil {
 		return yahtzee.NewRoll(), err
 	}

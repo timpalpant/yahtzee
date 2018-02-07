@@ -1,4 +1,6 @@
 data/
-compute_scores/compute_scores
-pick_a_winner/pick_a_winner
-server/yahtzee_server/yahtzee_server
+rpi/controller/manual_controller/manual_controller
+cmd/rpi/rpi
+cmd/compute_scores/compute_scores
+cmd/pick_a_winner/pick_a_winner
+cmd/yahtzee_server/yahtzee_server

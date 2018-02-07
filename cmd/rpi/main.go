@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/client"
 	"github.com/timpalpant/yahtzee/rpi"
 	"github.com/timpalpant/yahtzee/rpi/controller"
