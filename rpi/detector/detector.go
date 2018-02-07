@@ -51,15 +51,15 @@ func (d *YahtzeeDetector) Close() error {
 	return d.cam.Close()
 }
 
-func (d *YahtzeeDetector) GetCurrentRoll() (yahtzee.Roll, error) {
+func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 	err := d.cam.WaitForFrame(uint32(frameWaitTimeout.Seconds()))
 	if err != nil {
-		return yahtzee.NewRoll(), err
+		return nil, err
 	}
 
 	_, err = d.cam.ReadFrame()
 	if err != nil {
-		return yahtzee.NewRoll(), err
+		return nil, err
 	}
 
 	// TODO: Implement image extraction of dice.
@@ -80,28 +80,36 @@ func prompt(msg string) string {
 	return strings.TrimRight(result, "\n")
 }
 
-func parseRoll(s string) (yahtzee.Roll, error) {
-	roll := yahtzee.NewRoll()
-
+func parseRoll(s string) ([]int, error) {
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		return roll, err
+		return nil, err
 	}
 
+	dice := make([]int, 0, yahtzee.NDice)
 	for ; i > 0; i /= 10 {
 		die := i % 10
-		roll = roll.Add(die)
+		dice = append(dice, die)
 	}
 
-	if roll.NumDice() != yahtzee.NDice {
-		return roll, fmt.Errorf("Invalid number of dice: %v != %v",
-			roll.NumDice(), yahtzee.NDice)
+	// Reverse so that dice are in the order they were entered.
+	reverse(dice)
+
+	if len(dice) != yahtzee.NDice {
+		return dice, fmt.Errorf("Invalid number of dice: %v != %v",
+			len(dice), yahtzee.NDice)
 	}
 
-	return roll, nil
+	return dice, nil
 }
 
-func promptRoll() yahtzee.Roll {
+func reverse(a []int) {
+	for left, right := 0, len(a)-1; left < right; left, right = left+1, right-1 {
+		a[left], a[right] = a[right], a[left]
+	}
+}
+
+func promptRoll() []int {
 	for {
 		rollStr := prompt("Enter roll: ")
 		roll, err := parseRoll(rollStr)

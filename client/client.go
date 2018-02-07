@@ -19,12 +19,12 @@ func NewClient(uri string) *Client {
 	return &Client{http.DefaultClient, uri}
 }
 
-func (c *Client) GetOptimalMove(game yahtzee.GameState, step yahtzee.TurnStep, roll yahtzee.Roll, scoreToBeat int) (*server.OptimalMoveResponse, error) {
+func (c *Client) GetOptimalMove(game yahtzee.GameState, step yahtzee.TurnStep, roll []int, scoreToBeat int) (*server.OptimalMoveResponse, error) {
 	req := &server.OptimalMoveRequest{
 		GameState: server.FromYahtzeeGameState(game),
 		TurnState: server.TurnState{
 			Step: step,
-			Dice: roll.Dice(),
+			Dice: roll,
 		},
 		ScoreToBeat: scoreToBeat,
 	}

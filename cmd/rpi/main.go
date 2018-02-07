@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -31,6 +32,11 @@ func main() {
 		glog.Fatal(err)
 	}
 	defer controller.Close()
+
+	// Turn Yahtzee on if it is off.
+	controller.Roll()
+	// Wait for roll to complete in case it was on.
+	time.Sleep(3 * time.Second)
 
 	for {
 		glog.Info("Playing game")

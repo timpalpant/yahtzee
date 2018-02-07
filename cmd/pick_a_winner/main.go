@@ -66,7 +66,7 @@ func playGame(uri string, scoreToBeat int) {
 
 	for !game.GameOver() {
 		roll1 := promptRoll()
-		resp1, err := client.GetOptimalMove(game, yahtzee.Hold1, roll1, scoreToBeat)
+		resp1, err := client.GetOptimalMove(game, yahtzee.Hold1, roll1.Dice(), scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -75,7 +75,7 @@ func playGame(uri string, scoreToBeat int) {
 			resp1.HeldDice, resp1.Value)
 
 		roll2 := promptRoll()
-		resp2, err := client.GetOptimalMove(game, yahtzee.Hold2, roll2, scoreToBeat)
+		resp2, err := client.GetOptimalMove(game, yahtzee.Hold2, roll2.Dice(), scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -84,7 +84,7 @@ func playGame(uri string, scoreToBeat int) {
 			resp2.HeldDice, resp2.Value)
 
 		roll3 := promptRoll()
-		resp3, err := client.GetOptimalMove(game, yahtzee.FillBox, roll3, scoreToBeat)
+		resp3, err := client.GetOptimalMove(game, yahtzee.FillBox, roll3.Dice(), scoreToBeat)
 		if err != nil {
 			fmt.Println(err)
 			continue

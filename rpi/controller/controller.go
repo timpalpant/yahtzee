@@ -112,7 +112,7 @@ func (yc *YahtzeeController) Hold(die int) error {
 		return fmt.Errorf("die must be between 0 - %d", len(yc.holdButtons))
 	}
 
-	glog.V(1).Infof("Holding %v", die)
+	glog.V(1).Infof("Holding die %v", die+1)
 	yc.holdButtons[die].Press(defaultButtonPressDuration)
 	return nil
 }
@@ -148,31 +148,41 @@ func (yc *YahtzeeController) Roll() {
 	yc.rollButton.Press(defaultButtonPressDuration)
 }
 
+func (yc *YahtzeeController) Press(btn YahtzeeButton) error {
+	switch btn {
+	case Hold1:
+		return yc.Hold(0)
+	case Hold2:
+		return yc.Hold(1)
+	case Hold3:
+		return yc.Hold(2)
+	case Hold4:
+		return yc.Hold(3)
+	case Hold5:
+		return yc.Hold(4)
+	case NewGame:
+		yc.NewGame()
+	case Left:
+		yc.Left(1)
+	case Right:
+		yc.Right(1)
+	case Enter:
+		yc.Enter()
+	default:
+		return fmt.Errorf("unsupported button: %v", btn)
+	}
+
+	return nil
+}
+
 // Execute the given sequence of button presses.
 func (yc *YahtzeeController) Perform(buttonPressSequence []YahtzeeButton) error {
 	for _, btn := range buttonPressSequence {
-		switch btn {
-		case Hold1:
-			return yc.Hold(0)
-		case Hold2:
-			return yc.Hold(1)
-		case Hold3:
-			return yc.Hold(2)
-		case Hold4:
-			return yc.Hold(3)
-		case Hold5:
-			return yc.Hold(4)
-		case NewGame:
-			yc.NewGame()
-		case Left:
-			yc.Left(1)
-		case Right:
-			yc.Right(1)
-		case Enter:
-			yc.Enter()
-		default:
-			return fmt.Errorf("unsupported button: %v", btn)
+		if err := yc.Press(btn); err != nil {
+			return err
 		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	return nil

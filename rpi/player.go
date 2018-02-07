@@ -1,6 +1,7 @@
 package rpi
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -36,9 +37,9 @@ func NewYahtzeePlayer(detector *detector.YahtzeeDetector,
 
 func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
-	time.Sleep(time.Second)
 
 	for !yp.game.GameOver() {
+		time.Sleep(time.Second)
 		yp.controller.Roll()
 		// Wait for roll to complete.
 		time.Sleep(6 * time.Second)
@@ -59,7 +60,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			if len(resp.HeldDice) < yahtzee.NDice {
 				glog.Infof("Best option is to hold: %v, value: %g",
 					resp.HeldDice, resp.Value)
-				if err := yp.hold(resp.HeldDice); err != nil {
+				if err := yp.hold(roll, resp.HeldDice); err != nil {
 					return err
 				}
 
@@ -86,11 +87,31 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	return nil
 }
 
-func (yp *YahtzeePlayer) hold(dice []int) error {
-	desired := make([]bool, len(yp.held))
-	for _, die := range dice {
-		desired[die] = true
+func (yp *YahtzeePlayer) hold(roll, diceToKeep []int) error {
+	if len(roll) != len(yp.held) {
+		return fmt.Errorf(
+			"wrong number of dice in roll: expected: %v, got: %v",
+			len(yp.held), len(roll))
 	}
+
+	keepSet := make(map[int]int, len(diceToKeep))
+	for _, side := range diceToKeep {
+		keepSet[side]++
+	}
+
+	// TODO: Minimize changes.
+	desired := make([]bool, len(roll))
+	for die := range roll {
+		side := roll[die]
+		if n := keepSet[side]; n > 0 {
+			glog.V(2).Infof("Keeping die %v with side %v", die, side)
+			desired[die] = true
+			keepSet[side]--
+		}
+	}
+
+	glog.V(1).Infof("Current held dice: %v", yp.held)
+	glog.V(1).Infof("Desired held dice: %v", desired)
 
 	for die := range yp.held {
 		if yp.held[die] != desired[die] {
@@ -106,7 +127,8 @@ func (yp *YahtzeePlayer) hold(dice []int) error {
 	return nil
 }
 
-func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, roll yahtzee.Roll) {
+func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) {
+	roll := yahtzee.NewRollFromDice(dice)
 	game, addValue := yp.game.FillBox(box, roll)
 	glog.Infof("Best option is to play: %v for %v points", box, addValue)
 
