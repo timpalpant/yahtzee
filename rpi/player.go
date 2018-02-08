@@ -39,6 +39,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
 
 	for !yp.game.GameOver() {
+		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.currentScore)
 		time.Sleep(time.Second)
 		yp.controller.Roll()
 		// Wait for roll to complete.
@@ -48,42 +49,39 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			return err
 		}
 
+		glog.Infof("Detected roll: %v", roll)
 		resp, err := yp.client.GetOptimalMove(yp.game, yp.turnStep, roll, scoreToBeat)
 		if err != nil {
 			return err
-		}
-
-		switch yp.turnStep {
-		case yahtzee.Hold1:
-			fallthrough
-		case yahtzee.Hold2:
-			if len(resp.HeldDice) < yahtzee.NDice {
-				glog.Infof("Best option is to hold: %v, value: %g",
-					resp.HeldDice, resp.Value)
-				if err := yp.hold(roll, resp.HeldDice); err != nil {
-					return err
-				}
-
-				break
-			}
-
-			// Hold all dice, i.e. skip to fill box.
-			resp, err = yp.client.GetOptimalMove(yp.game, yahtzee.FillBox, roll, scoreToBeat)
-			if err != nil {
-				return err
-			}
-			fallthrough
-		case yahtzee.FillBox:
-			box := yahtzee.Box(resp.BoxFilled)
-			yp.fillBox(box, roll)
 		}
 
 		if resp.NewGame {
 			glog.Info("Giving up and starting a new game")
 			break
 		}
+
+		switch yp.turnStep {
+		case yahtzee.Hold1:
+			fallthrough
+		case yahtzee.Hold2:
+			if len(resp.HeldDice) == yahtzee.NDice {
+				if err := yp.fillBoxEarly(roll, scoreToBeat); err != nil {
+					return err
+				}
+			} else {
+				glog.Infof("Best option is to hold: %v, value: %g",
+					resp.HeldDice, resp.Value)
+				if err := yp.hold(roll, resp.HeldDice); err != nil {
+					return err
+				}
+			}
+		case yahtzee.FillBox:
+			box := yahtzee.Box(resp.BoxFilled)
+			yp.fillBox(box, roll)
+		}
 	}
 
+	glog.Infof("Final score: %v", yp.currentScore)
 	return nil
 }
 
@@ -127,17 +125,33 @@ func (yp *YahtzeePlayer) hold(roll, diceToKeep []int) error {
 	return nil
 }
 
+func (yp *YahtzeePlayer) fillBoxEarly(roll []int, scoreToBeat int) error {
+	// Hold all dice, i.e. skip to fill box.
+	resp, err := yp.client.GetOptimalMove(yp.game, yahtzee.FillBox, roll, scoreToBeat)
+	if err != nil {
+		return err
+	}
+
+	box := yahtzee.Box(resp.BoxFilled)
+	yp.fillBox(box, roll)
+	return nil
+}
+
 func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) {
 	roll := yahtzee.NewRollFromDice(dice)
 	game, addValue := yp.game.FillBox(box, roll)
 	glog.Infof("Best option is to play: %v for %v points", box, addValue)
 
-	buttonPressSequence := yp.computeFillPresses(box, roll)
-	yp.controller.Perform(buttonPressSequence)
+	// Last box plays itself automatically.
+	if len(yp.game.AvailableBoxes()) > 1 {
+		buttonPressSequence := yp.computeFillPresses(box, roll)
+		yp.controller.Perform(buttonPressSequence)
+	}
 
+	// Next turn. Note: Held dice reset.
 	yp.currentScore += addValue
 	yp.game = game
-	// Held dice reset for the next turn when box is filled.
+	yp.turnStep = yahtzee.Hold1
 	for die := range yp.held {
 		yp.held[die] = false
 	}
@@ -159,6 +173,7 @@ func (yp *YahtzeePlayer) computeFillPresses(box yahtzee.Box, roll yahtzee.Roll) 
 	}
 
 	moves := getMovesToBox(yp.game, box)
+	glog.V(1).Infof("Moving right %d times to select %v", len(moves), box)
 	result = append(result, moves...)
 
 	result = append(result, controller.Enter)
@@ -166,6 +181,7 @@ func (yp *YahtzeePlayer) computeFillPresses(box yahtzee.Box, roll yahtzee.Roll) 
 }
 
 func getMovesToBox(game yahtzee.GameState, desired yahtzee.Box) []controller.YahtzeeButton {
+	glog.V(2).Infof("Computing moves to select desired box %v", desired)
 	result := make([]controller.YahtzeeButton, 0)
 
 	// TODO: Go left when it is more efficient.

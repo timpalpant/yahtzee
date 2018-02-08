@@ -8,7 +8,7 @@ import (
 	"github.com/stianeikeland/go-rpio"
 )
 
-const defaultButtonPressDuration = 50 * time.Millisecond
+const defaultButtonPressDuration = 100 * time.Millisecond
 
 // YahtzeeButton is an enum of the available buttons on the
 // YahtzeeController.
@@ -182,7 +182,7 @@ func (yc *YahtzeeController) Perform(buttonPressSequence []YahtzeeButton) error 
 			return err
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	return nil
