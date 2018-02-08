@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +19,8 @@ const (
 	frameWaitTimeout = time.Second
 
 	mJPGPixelFormat = webcam.PixelFormat(1196444237)
-	imageWidth = 1280
-	imageHeight = 960
+	imageWidth      = 1280
+	imageHeight     = 960
 )
 
 type YahtzeeDetector struct {
@@ -57,7 +58,7 @@ func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 		return nil, err
 	}
 
-	_, err = d.cam.ReadFrame()
+	frame, err = d.cam.ReadFrame()
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,37 @@ func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 	// TODO: Implement image extraction of dice.
 	// For now, they have to be entered manually.
 	roll := promptRoll()
+	if err := saveTrainingData(frame, roll); err != nil {
+		glog.Error(err)
+	}
 	return roll, nil
+}
+
+const outputDataDir = "training-data"
+
+var nRolls int
+
+func saveTrainingData(frame []byte, roll []int) error {
+	outputFile := path.Join(outputDataDir, fmt.Sprintf("%d.jpg", nRolls))
+	f, err := os.Create(outputFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := f.Write(frame); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile("rolls.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = fmt.Fprintf(f, "%d\t%v", nRolls, roll)
+	nRolls++
+	return err
 }
 
 var stdin = bufio.NewReader(os.Stdin)
