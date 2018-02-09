@@ -19,6 +19,7 @@ var stdin = bufio.NewReader(os.Stdin)
 
 func main() {
 	dev := flag.String("d", "/dev/video0", "Video device to use")
+	imageDir := flag.String("imagedir", "images", "Output directory for captured images")
 	uri := flag.String("uri", "http://localhost:8080", "URI of Yahtzee server")
 	scoreToBeat := flag.Int("score_to_beat", 0, "Score to beat (if 0, maximize expected score)")
 	playContinuously := flag.Bool("play_continuously", false, "Continue to next game automatically")
@@ -27,7 +28,7 @@ func main() {
 	client := client.NewClient(*uri)
 
 	glog.Info("Initializing webcam detector")
-	detector, err := detector.NewYahtzeeDetector(*dev)
+	detector, err := detector.NewYahtzeeDetector(*dev, *imageDir)
 	if err != nil {
 		glog.Fatal(err)
 	}
