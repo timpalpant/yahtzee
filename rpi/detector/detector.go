@@ -59,6 +59,10 @@ func NewYahtzeeDetector(v4l2Device, outDir string) (*YahtzeeDetector, error) {
 		return nil, err
 	}
 
+	if outDir != "" {
+		os.MkdirAll(outDir, os.ModePerm)
+	}
+
 	return &YahtzeeDetector{cam: cam, outDir: outDir}, nil
 }
 
