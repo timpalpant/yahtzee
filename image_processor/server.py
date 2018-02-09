@@ -11,7 +11,7 @@ import yahtzee
 app = flask.Flask(__name__)
 
 
-@app.route("/rest/yahtzee/v1/process_image", methods=["POST"])
+@app.route("/rest/v1/process_image", methods=["POST"])
 def process_image():
     '''
     Process an image of electronic hand-held Yahtzee,
@@ -31,7 +31,7 @@ def process_image():
     try:
         req = flask.request.get_json(force=True)
         buf = base64.b64decode(req["image"], validate=True)
-        a = skimage.io.imread(io.BytesIO(buf), as_grey=True)
+        a = skimage.io.imread(io.BytesIO(buf))
     except Exception as e:
         resp = flask.make_response(str(e), 400)
         flask.abort(resp)
