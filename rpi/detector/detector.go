@@ -2,26 +2,21 @@ package detector
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/blackjack/webcam"
 	"github.com/golang/glog"
+	"gocv.io/x/gocv"
 
 	"github.com/timpalpant/yahtzee"
 )
 
 const (
-	frameWaitTimeout = 5 * time.Second
-
-	mJPGPixelFormat = webcam.PixelFormat(1196444237)
-	imageWidth      = 1280
-	imageHeight     = 960
+	imageWidth  = 1280
+	imageHeight = 960
 )
 
 var (
@@ -31,39 +26,30 @@ var (
 )
 
 type YahtzeeDetector struct {
-	cam *webcam.Webcam
+	cam    *gocv.VideoCapture
+	client *Client
 
 	outDir string
-	n int
+	n      int
 }
 
-func NewYahtzeeDetector(v4l2Device, outDir string) (*YahtzeeDetector, error) {
-	cam, err := webcam.Open(v4l2Device) // Open webcam
+func NewYahtzeeDetector(device int, uri, outDir string) (*YahtzeeDetector, error) {
+	cam, err := gocv.VideoCaptureDevice(device)
 	if err != nil {
 		return nil, err
 	}
 
-	format_desc := cam.GetSupportedFormats()
-	f, w, h, err := cam.SetImageFormat(mJPGPixelFormat, imageWidth, imageHeight)
-	if err != nil {
-		return nil, err
-	} else {
-		glog.Infof("Webcam image format: %v (%dx%d)", format_desc[f], w, h)
-	}
-
-	if err := cam.SetAutoWhiteBalance(true); err != nil {
-		return nil, err
-	}
-
-	if err := cam.StartStreaming(); err != nil {
-		return nil, err
-	}
+	cam.Grab(5)
 
 	if outDir != "" {
 		os.MkdirAll(outDir, os.ModePerm)
 	}
 
-	return &YahtzeeDetector{cam: cam, outDir: outDir}, nil
+	return &YahtzeeDetector{
+		cam:    cam,
+		client: NewClient(uri),
+		outDir: outDir,
+	}, nil
 }
 
 func (d *YahtzeeDetector) Close() error {
@@ -71,41 +57,47 @@ func (d *YahtzeeDetector) Close() error {
 }
 
 func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
-	err := d.cam.WaitForFrame(uint32(frameWaitTimeout.Seconds()))
+	img := gocv.NewMat()
+	defer img.Close()
+
+	if ok := d.cam.Read(img); !ok {
+		return nil, fmt.Errorf("error reading image from webcam")
+	}
+	if img.Empty() {
+		return nil, fmt.Errorf("received an empty image from webcam")
+	}
+
+	frame, err := gocv.IMEncode(gocv.JPEGFileExt, img)
 	if err != nil {
 		return nil, err
 	}
 
-	frame, err := d.cam.ReadFrame()
+	dice, err := d.client.GetDiceFromImage(frame)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: Implement image extraction of dice.
 	// For now, they have to be entered manually.
+	glog.Infof("Detected dice: %v", dice)
 	roll := promptRoll()
-	if err := d.saveTrainingData(frame, roll); err != nil {
+
+	if err := d.saveTrainingData(img, roll); err != nil {
 		glog.Error(err)
 	}
+
 	return roll, nil
 }
 
-func (d *YahtzeeDetector) saveTrainingData(frame []byte, roll []int) error {
+func (d *YahtzeeDetector) saveTrainingData(img gocv.Mat, roll []int) error {
 	outputFile := path.Join(d.outDir, fmt.Sprintf("%d.jpg", d.n))
 	glog.V(1).Infof("Saving: %v", outputFile)
-	f, err := os.Create(outputFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	frame = addMotionDht(frame)
-	if _, err := f.Write(frame); err != nil {
-		return err
+	if ok := gocv.IMWrite(outputFile, img); !ok {
+		return fmt.Errorf("error saving mage to output file")
 	}
 
 	rollsFile := path.Join(d.outDir, "rolls.txt")
-	f, err = os.OpenFile(rollsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(rollsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -114,11 +106,6 @@ func (d *YahtzeeDetector) saveTrainingData(frame []byte, roll []int) error {
 	_, err = fmt.Fprintf(f, "%d\t%v\n", d.n, roll)
 	d.n++
 	return err
-}
-
-func addMotionDht(frame []byte) []byte {
-	jpegParts := bytes.SplitN(frame, sosMarker, 2)
-	return append(jpegParts[0], append(dhtMarker, append(dht, append(sosMarker, jpegParts[1]...)...)...)...)
 }
 
 var stdin = bufio.NewReader(os.Stdin)
