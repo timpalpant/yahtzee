@@ -10,6 +10,11 @@ import yahtzee
 
 app = flask.Flask(__name__)
 
+logger = logging.getLogger()
+gunicorn_error_logger = logging.getLogger('gunicorn.error')
+logger.handlers.extend(gunicorn_error_logger.handlers)
+logger.setLevel(logging.DEBUG)
+
 
 @app.route("/rest/v1/process_image", methods=["POST"])
 def process_image():
@@ -36,6 +41,7 @@ def process_image():
         resp = flask.make_response(str(e), 400)
         flask.abort(resp)
 
+    logging.info("Extracting dice from image")
     resp = {}
     try:
         resp["dice"] = yahtzee.extract_dice(a)

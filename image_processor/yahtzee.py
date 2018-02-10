@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 def extract_dice(image):
     bw = preprocess(image)
     regions = extract_dice_regions(bw)
+    logger.debug("Selected %d regions from image", len(regions))
     result = []
     for region in regions:
         minr, minc, maxr, maxc = region.bbox
         die_image = skimage.exposure.rescale_intensity(bw[minr:maxr, minc:maxc])
+        logger.debug("Classifying region %d:%d x %d:%d", minr, maxr, minc, maxc)
         die = classify_die(die_image)
         result.append(die)
     return result
@@ -31,6 +33,7 @@ def classify_die(die_image):
     for candidate, template in TEMPLATES.items():
         x = skimage.transform.resize(die_image, template.shape)
         r = np.corrcoef(x.ravel(), template.ravel())[0, 1]
+        logger.debug("Checking %s - R = %.2f", candidate, r)
         if r > max_corr:
             max = candidate
             max_corr = r
@@ -48,6 +51,7 @@ def extract_dice_regions(image):
     cleared = skimage.segmentation.clear_border(edges)
     label_image = skimage.measure.label(cleared)
     regions = skimage.measure.regionprops(label_image)
+    logger.debug("Found %d regions in labeled image", len(regions))
     return select_dice_regions(regions)
 
 
@@ -75,5 +79,5 @@ def load_template(filename: str):
 CROP_REGION = (81, 430, 81, 430)
 TEMPLATES = {
     die: load_template('templates/{}.png'.format(die))
-    for die in ("ones", "twos", "threes", "fours", "fives", "sixes")
+    for die in range(1, 7)
 }

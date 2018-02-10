@@ -10,4 +10,4 @@ COPY . /usr/src/app
 
 EXPOSE 8080
 
-CMD [ "gunicorn", "-b", "0.0.0.0:8080", "server:app" ]
+CMD [ "gunicorn", "-b", "0.0.0.0:8080", "-t", "90", "--log-level", "debug", "server:app" ]
