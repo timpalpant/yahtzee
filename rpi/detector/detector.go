@@ -117,12 +117,8 @@ func (d *YahtzeeDetector) saveTrainingData(frame []byte, roll []int) error {
 }
 
 func addMotionDht(frame []byte) []byte {
-	jpegParts := bytes.Split(frame, sosMarker)
-	result := append(jpegParts[0], dhtMarker...)
-	result = append(result, dht...)
-	result = append(result, sosMarker...)
-	result = append(result, jpegParts[1]...)
-	return result
+	jpegParts := bytes.SplitN(frame, sosMarker, 2)
+	return append(jpegParts[0], append(dhtMarker, append(dht, append(sosMarker, jpegParts[1]...)...)...)...)
 }
 
 var stdin = bufio.NewReader(os.Stdin)
