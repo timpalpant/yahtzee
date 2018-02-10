@@ -8,14 +8,6 @@ import (
 	"net/http"
 )
 
-type ImageProcessingError struct {
-	Message string
-}
-
-func (e ImageProcessingError) Error() string {
-	return e.Message
-}
-
 type Client struct {
 	client *http.Client
 	uri    string
@@ -27,7 +19,7 @@ func NewClient(uri string) *Client {
 
 func (c *Client) GetDiceFromImage(image []byte) ([]int, error) {
 	var req struct {
-		Image string
+		Image string `json:"image"`
 	}
 
 	req.Image = base64.StdEncoding.EncodeToString(image)
@@ -50,7 +42,9 @@ func (c *Client) GetDiceFromImage(image []byte) ([]int, error) {
 
 	var result struct {
 		Dice  []int
-		Error *ImageProcessingError
+		Error struct {
+			Message string
+		}
 	}
 
 	dec := json.NewDecoder(resp.Body)
@@ -58,5 +52,9 @@ func (c *Client) GetDiceFromImage(image []byte) ([]int, error) {
 		return nil, err
 	}
 
-	return result.Dice, result.Error
+	if result.Error.Message != "" {
+		err = fmt.Errorf(result.Error.Message)
+	}
+
+	return result.Dice, err
 }
