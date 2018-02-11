@@ -2,6 +2,7 @@ package detector
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -10,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
+	"github.com/satori/go.uuid"
 	"gocv.io/x/gocv"
 
 	"github.com/timpalpant/yahtzee"
@@ -23,16 +25,16 @@ const (
 type YahtzeeDetector struct {
 	client *Client
 
-	outDir string
-	n      int
+	outDir   string
+	annotate bool
 
 	// mu protects currentImg
-	mu sync.Mutex
+	mu         sync.Mutex
 	currentImg gocv.Mat
-	closeCh chan error
+	closeCh    chan error
 }
 
-func NewYahtzeeDetector(device int, uri, outDir string) (*YahtzeeDetector, error) {
+func NewYahtzeeDetector(device int, uri, outDir string, annotate bool) (*YahtzeeDetector, error) {
 	cam, err := gocv.VideoCaptureDevice(device)
 	if err != nil {
 		return nil, err
@@ -51,10 +53,11 @@ func NewYahtzeeDetector(device int, uri, outDir string) (*YahtzeeDetector, error
 	}
 
 	d := &YahtzeeDetector{
-		client: NewClient(uri),
+		client:     NewClient(uri),
+		outDir:     outDir,
+		annotate:   annotate,
 		currentImg: gocv.NewMat(),
-		outDir: outDir,
-		closeCh: make(chan error),
+		closeCh:    make(chan error),
 	}
 
 	go d.streamFrames(cam)
@@ -82,22 +85,31 @@ func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 		return nil, err
 	}
 
-	glog.V(2).Infof("Sending image to image processing service")
-	dice, err := d.client.GetDiceFromImage(frame)
+	id, err := d.saveImage(frame)
 	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Implement image extraction of dice.
-	// For now, they have to be entered manually.
-	glog.Infof("Detected dice: %v", dice)
-	roll := promptRoll()
-
-	if err := d.saveTrainingData(img, roll); err != nil {
 		glog.Error(err)
 	}
 
-	return roll, nil
+	glog.V(1).Infof("Sending image %v to image processing service", id)
+	//dice, err := d.client.GetDiceFromImage(frame)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	// TODO: Implement image extraction of dice.
+	// For now, they have to be entered manually.
+	//glog.Infof("Detected dice: %v", dice)
+	var dice []int
+	if d.annotate {
+		roll := promptRoll()
+		if err := d.saveAnnotation(id, roll); err != nil {
+			glog.Error(err)
+		}
+
+		dice = roll
+	}
+
+	return dice, nil
 }
 
 func (d *YahtzeeDetector) streamFrames(webcam *gocv.VideoCapture) error {
@@ -140,23 +152,34 @@ func (d *YahtzeeDetector) getCurrentImage(img gocv.Mat) {
 	d.currentImg.CopyTo(img)
 }
 
-func (d *YahtzeeDetector) saveTrainingData(img gocv.Mat, roll []int) error {
-	outputFile := path.Join(d.outDir, fmt.Sprintf("%d.jpg", d.n))
-	glog.V(1).Infof("Saving: %v", outputFile)
-	if !gocv.IMWrite(outputFile, img) {
-		return fmt.Errorf("error saving mage to output file")
+func (d *YahtzeeDetector) saveImage(frame []byte) (string, error) {
+	id, err := uuid.NewV4()
+	if err != nil {
+		return "", err
 	}
 
-	rollsFile := path.Join(d.outDir, "rolls.txt")
+	outputFile := path.Join(d.outDir, fmt.Sprintf("%s.jpg", id.String()))
+	glog.V(1).Infof("Saving: %v", outputFile)
+	f, err := os.Create(outputFile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	_, err = f.Write(frame)
+	return id.String(), err
+}
+
+func (d *YahtzeeDetector) saveAnnotation(id string, roll []int) error {
+	rollsFile := path.Join(d.outDir, fmt.Sprintf("%s.json", id))
 	f, err := os.OpenFile(rollsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	_, err = fmt.Fprintf(f, "%d\t%v\n", d.n, roll)
-	d.n++
-	return err
+	enc := json.NewEncoder(f)
+	return enc.Encode(roll)
 }
 
 var stdin = bufio.NewReader(os.Stdin)
