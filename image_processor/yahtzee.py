@@ -1,3 +1,4 @@
+import itertools
 import logging
 import numpy as np
 
@@ -5,7 +6,6 @@ import skimage.color
 import skimage.exposure
 import skimage.feature
 import skimage.io
-import skimage.morphology
 import skimage.transform
 
 
@@ -13,11 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 def extract_dice(image):
-    bw = preprocess(image)
+    viewport = extract_viewport(image)
+    bw = preprocess(viewport)
     regions = extract_dice_regions(bw)
     logger.debug("Selected %d regions from image", len(regions))
+
+    # NOTE: The regions need to be returned in the correct order,
+    # left-to-right.
     result = []
-    for region in regions:
+    for region in sorted(regions, key=lambda r: r.bbox[1]):
         minr, minc, maxr, maxc = region.bbox
         die_image = skimage.exposure.rescale_intensity(bw[minr:maxr, minc:maxc])
         logger.debug("Classifying region %d:%d x %d:%d", minr, maxr, minc, maxc)
@@ -46,6 +50,17 @@ def preprocess(image):
     return bw
 
 
+def extract_viewport(image):
+    bw = preprocess(image)
+    edges = skimage.feature.canny(bw, sigma=3)
+    cleared = skimage.segmentation.clear_border(edges)
+    label_image = skimage.measure.label(cleared)
+    regions = skimage.measure.regionprops(label_image)
+    largest_region = max(regions, key=lambda r: r.area)
+    minr, minc, maxr, maxc = largest_region.bbox
+    return image[minr:maxr, minc:maxc]
+
+
 def extract_dice_regions(image):
     edges = skimage.feature.canny(image, sigma=2)
     cleared = skimage.segmentation.clear_border(edges)
@@ -57,17 +72,37 @@ def extract_dice_regions(image):
 
 def select_dice_regions(regions: list):
     # Select regions that are approximately square, in a line.
-    # NOTE: The regions need to be returned in the correct order,
-    # left-to-right.
-    result = []
+    candidates = []
     for r in regions:
-        if r.area < 150 or r.area > 250:
-            continue
-        aspect_ratio = r.major_axis_length / r.minor_axis_length
-        if aspect_ratio > 1.5:
-            continue
-        result.append(r)
-    return result
+        minr, minc, maxr, maxc = r.bbox
+        height = maxr - minr
+        width = maxc - minc
+        aspect_ratio = width / height
+        if 0.9 < aspect_ratio < 1.1 and 250 < r.area < 500:
+            candidates.append(r)
+    return squares_in_a_line(candidates, 5)
+
+
+def squares_in_a_line(candidates:list, n:int):
+    # Of the given candidates, return the n that are most linear.
+    if len(candidates) < n:
+        return candidates
+
+    scores = []
+    for regions in itertools.combinations(candidates, n):
+        regions = sorted(regions, key=lambda r: r.bbox)
+        widths = [r.bbox[3] - r.bbox[1] for r in regions]
+        heights = [r.bbox[2] - r.bbox[0] for r in regions]
+        horizontal_spacing = [regions[i+1].bbox[1] - regions[i].bbox[1]
+                              for i in range(len(regions)-1)]
+        vertical_spacing = [regions[i+1].bbox[2] - regions[i].bbox[0]
+                            for i in range(len(regions)-1)]
+        sizing_var = np.var(widths) + np.var(heights)
+        spacing_var = np.var(horizontal_spacing) + np.var(vertical_spacing)
+        total_var = sizing_var + spacing_var
+        scores.append((total_var, regions))
+
+    return min(scores)[1]
 
 
 def load_template(filename: str):
