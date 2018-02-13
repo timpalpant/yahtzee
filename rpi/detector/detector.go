@@ -56,8 +56,13 @@ func NewYahtzeeDetector(device int, uri, outDir string, annotate bool) (*Yahtzee
 		os.MkdirAll(outDir, os.ModePerm)
 	}
 
+	var client *Client
+	if uri != "" {
+		client = NewClient(uri)
+	}
+
 	d := &YahtzeeDetector{
-		client:     NewClient(uri),
+		client:     client,
 		outDir:     outDir,
 		annotate:   annotate,
 		currentImg: gocv.NewMat(),
@@ -94,16 +99,16 @@ func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 		glog.Error(err)
 	}
 
-	glog.V(1).Infof("Sending image %v to image processing service", id)
-	//dice, err := d.client.GetDiceFromImage(frame)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	// TODO: Implement image extraction of dice.
-	// For now, they have to be entered manually.
-	//glog.Infof("Detected dice: %v", dice)
 	var dice []int
+	if d.client != nil {
+		glog.V(1).Infof("Sending image %v to image processing service", id)
+		dice, err = d.client.GetDiceFromImage(frame)
+		if err != nil {
+			return nil, err
+		}
+		glog.Infof("Detected dice: %v", dice)
+	}
+
 	if d.annotate {
 		roll := promptRoll()
 		if err := d.saveAnnotation(id, roll); err != nil {

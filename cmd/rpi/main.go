@@ -21,11 +21,15 @@ func main() {
 	dev := flag.Int("d", 0, "Video device to use")
 	imageDir := flag.String("imagedir", "images", "Output directory for captured images")
 	annotate := flag.Bool("annotate", false, "Prompt for user roll input")
-	imageProcessingURI := flag.String("image_processing_uri", "http://localhost:8080", "URI of image processing server")
+	imageProcessingURI := flag.String("image_processing_uri", "", "URI of image processing server")
 	yahtzeeURI := flag.String("yahtzee_uri", "http://localhost:8085", "URI of Yahtzee server")
 	scoreToBeat := flag.Int("score_to_beat", 0, "Score to beat (if 0, maximize expected score)")
 	playContinuously := flag.Bool("play_continuously", false, "Continue to next game automatically")
 	flag.Parse()
+
+	if !(*annotate) && *imageProcessingURI == "" {
+		glog.Fatal("-annotate and/or -image_processing_uri must be set")
+	}
 
 	client := client.NewClient(*yahtzeeURI)
 
