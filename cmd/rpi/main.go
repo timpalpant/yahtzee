@@ -57,7 +57,7 @@ func main() {
 		glog.Info("Playing game")
 		player := rpi.NewYahtzeePlayer(detector, client, controller)
 		if err = player.Play(*scoreToBeat); err != nil {
-			panic(err)
+			glog.Error(err)
 		}
 
 		if !(*playContinuously) {

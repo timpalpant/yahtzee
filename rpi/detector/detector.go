@@ -22,7 +22,11 @@ const (
 	imageHeight = 720
 	fps = 5
 	mJPGFormat = 1196444237
+
+	retryLimit = 3
 )
+
+var stdin = bufio.NewReader(os.Stdin)
 
 type YahtzeeDetector struct {
 	client *Client
@@ -81,6 +85,19 @@ func (d *YahtzeeDetector) Close() error {
 }
 
 func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
+	for retry := 0; retry < retryLimit; retry++ {
+		dice, err := d.getRoll()
+		if err != nil {
+			glog.Error(err)
+		} else {
+			return dice, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to get dice after %d tries", retryLimit)
+}
+
+func (d *YahtzeeDetector) getRoll() ([]int, error) {
 	glog.V(2).Infof("Getting current webcam image")
 	img := gocv.NewMat()
 	defer img.Close()
@@ -116,6 +133,11 @@ func (d *YahtzeeDetector) GetCurrentRoll() ([]int, error) {
 		}
 
 		dice = roll
+	}
+
+	if len(dice) != yahtzee.NDice {
+		return nil, fmt.Errorf("incorrect number of dice: got %d, expected %d",
+			len(dice), yahtzee.NDice)
 	}
 
 	return dice, nil
@@ -190,8 +212,6 @@ func (d *YahtzeeDetector) saveAnnotation(id string, roll []int) error {
 	enc := json.NewEncoder(f)
 	return enc.Encode(roll)
 }
-
-var stdin = bufio.NewReader(os.Stdin)
 
 func prompt(msg string) string {
 	fmt.Print(msg)
