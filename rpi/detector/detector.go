@@ -19,7 +19,9 @@ import (
 
 const (
 	imageWidth  = 1280
-	imageHeight = 960
+	imageHeight = 720
+	fps = 5
+	mJPGFormat = 1196444237
 )
 
 type YahtzeeDetector struct {
@@ -40,8 +42,10 @@ func NewYahtzeeDetector(device int, uri, outDir string, annotate bool) (*Yahtzee
 		return nil, err
 	}
 
+	cam.Set(gocv.VideoCaptureFPS, fps)
 	cam.Set(gocv.VideoCaptureFrameWidth, imageWidth)
 	cam.Set(gocv.VideoCaptureFrameHeight, imageHeight)
+	cam.Set(gocv.VideoCaptureFormat, mJPGFormat)
 
 	if !cam.IsOpened() {
 		cam.Close()
