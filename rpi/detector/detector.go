@@ -126,13 +126,17 @@ func (d *YahtzeeDetector) getRoll() ([]int, error) {
 		glog.Infof("Detected dice: %v", dice)
 	}
 
+	var annotatedRoll []int
 	if d.annotate {
-		roll := promptRoll()
-		if err := d.saveAnnotation(id, roll); err != nil {
-			glog.Error(err)
-		}
+		annotatedRoll = promptRoll()
+	}
 
-		dice = roll
+	if err := d.saveAnnotation(id, dice, annotatedRoll); err != nil {
+		glog.Error(err)
+	}
+
+	if len(annotatedRoll) > 0 {
+		dice = annotatedRoll
 	}
 
 	if len(dice) != yahtzee.NDice {
@@ -201,7 +205,7 @@ func (d *YahtzeeDetector) saveImage(frame []byte) (string, error) {
 	return id.String(), err
 }
 
-func (d *YahtzeeDetector) saveAnnotation(id string, roll []int) error {
+func (d *YahtzeeDetector) saveAnnotation(id string, dice, roll []int) error {
 	rollsFile := path.Join(d.outDir, fmt.Sprintf("%s.json", id))
 	f, err := os.OpenFile(rollsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -209,8 +213,16 @@ func (d *YahtzeeDetector) saveAnnotation(id string, roll []int) error {
 	}
 	defer f.Close()
 
+	var result struct {
+		Detected []int
+		Annotated []int
+	}
+
+	result.Detected = dice
+	result.Annotated = roll
+
 	enc := json.NewEncoder(f)
-	return enc.Encode(roll)
+	return enc.Encode(result)
 }
 
 func prompt(msg string) string {
