@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -61,11 +62,13 @@ func main() {
 		}
 
 		if !(*playContinuously) {
-			fmt.Print("Press ENTER to play again, q to quit")
+			fmt.Print("Press ENTER to play again, q to quit: ")
 			result, err = stdin.ReadString('\n')
 			if err != nil {
-				panic(err)
+				glog.Error(err)
 			}
+
+			result = strings.Trim(result)
 		}
 	}
 }
