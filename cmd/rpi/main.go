@@ -68,7 +68,7 @@ func main() {
 				glog.Error(err)
 			}
 
-			result = strings.Trim(result)
+			result = strings.TrimSpace(result)
 		}
 	}
 }
