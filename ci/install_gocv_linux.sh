@@ -18,9 +18,9 @@ TMPDIR=/home/travis/opencv
 mkdir -p $TMPDIR
 cd $TMPDIR
 wget -O opencv.zip https://github.com/opencv/opencv/archive/3.4.0.zip
-unzip opencv.zip
+unzip -q opencv.zip
 wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/3.4.0.zip
-unzip opencv_contrib.zip
+unzip -q opencv_contrib.zip
 
 # make build
 cd $TMPDIR/opencv-3.4.0
