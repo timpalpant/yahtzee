@@ -23,6 +23,7 @@ func NewYahtzeeServer(highScoreStrat, expectedScoreStrat *yahtzee.Strategy) *Yah
 func (ys *YahtzeeServer) Index(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("templates/index.html")
 	if err != nil {
+		glog.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

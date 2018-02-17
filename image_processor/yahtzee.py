@@ -78,7 +78,7 @@ def select_dice_regions(regions: list):
         height = maxr - minr
         width = maxc - minc
         aspect_ratio = width / height
-        if 0.9 < aspect_ratio < 1.1 and 250 < r.area < 500:
+        if 0.9 < aspect_ratio < 1.1 and 200 < r.area < 500:
             candidates.append(r)
     return squares_in_a_line(candidates, 5)
 
