@@ -2,6 +2,7 @@ language: go
 go:
 - 1.9
 install:
+- ci/install_gocv_linux.sh
 - go get golang.org/x/tools/cmd/cover
 - go get github.com/mattn/goveralls
 - go get -t ./...
