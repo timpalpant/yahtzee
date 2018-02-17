@@ -30,6 +30,3 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local -D OPENCV_E
 make -j4
 sudo make install
 sudo ldconfig
-
-cd $GOPATH/src/gocv.io/x/gocv
-source ./env.sh
