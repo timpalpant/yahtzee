@@ -31,4 +31,5 @@ make -j4
 sudo make install
 sudo ldconfig
 
+cd $GOPATH/src/gocv.io/x/gocv
 source ./env.sh
