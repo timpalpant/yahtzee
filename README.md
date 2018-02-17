@@ -1,5 +1,5 @@
-go-yahtzee
-==========
+YAHTZEE!
+========
 
 A Go implementation of an optimal Yahtzee player on the Raspberry Pi. See more about this project [on my blog](https://tim.palpant.us), or [play along online](https://tim.palpant.us/yahtzee).
 
@@ -81,7 +81,8 @@ $ ./rpi -logtostderr -v 3 -yahtzee_uri http://localhost:8085 -image_processing_u
 It is recommended to run the yahtzee server and image processing service on a separate machine,
 since they require more memory and computational resources than available on the pi.
 
-## License
+License
+=======
 
 This package is released under the [GNU Lesser General Public License, Version 3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 
