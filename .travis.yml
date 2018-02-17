@@ -1,14 +1,18 @@
+sudo: required
 language: go
 go:
 - 1.9
+
 install:
 - ci/install_gocv_linux.sh
 - go get golang.org/x/tools/cmd/cover
 - go get github.com/mattn/goveralls
 - go get -t ./...
+
 script:
 - go test -v -coverprofile=coverprofile.out
 - goveralls -coverprofile=coverprofile.out -service=travis-ci -repotoken $COVERALLS_TOKEN
+
 env:
   global:
     secure: JJsHX7mMU8Ze2YIw2Axjf1gsQPaepZcFWCwQclsZl71VXR9J364a0PjP0iI9myvaOR8t+mCNGJYw0UjZxSOZFL4IE70wG4Ijyw+YQb2P0BaiBDgOPS+2gayB6FEPk4dcuyDMN4TcV49fuAWRPiMDmPLxTQ+pG6c+YI/k6TLoYGNCQJQ4l/g7R0EBJ2EJcodMZaJRAUKRyRPpsmYueuoJhZ9p+cgcpH68mk6bm0wYCUJAc2F9r+z57a3r8fKVGlt0TQEPrMvrqFFPtgRYeDRVvGfswoY8kXoT+1WSjV2T6xUirnWcxzjYDO3PMkh7TbraCfVj15vUzjxz4lrtDLh110g6AxYNVpycgy5NSueEaY0eFydBd7C2Meo98fnqumhejiKCTDxItNQQKJmSnJb3N4uM46yObi/w/jt344e+0AcdU/uVwo7zQhXTWcs3LheIHV1GWEQYRNm2Gh3hsnHC/MIoL2SHmgZbhbWBOg7WHmALqpVXAtm9uPC07eVHCSBmIMW60uCFFhvKkbFcSxRRHwqggXPuFWjcj23LgGZPuPtBiKo+xzQg6D4CsD90P4ztGo1FWdZM7SWpUF8cTMIsRSFDdN9F6/DnNUzfSnrjUgA6xYq92an5bhhY2D2uO0Goqb1Wr3I2mW9qXFrTNjtZhNU/SMtn3TzivuFVowHmEXc=
