@@ -177,12 +177,17 @@ func (yc *YahtzeeController) Press(btn YahtzeeButton) error {
 
 // Execute the given sequence of button presses.
 func (yc *YahtzeeController) Perform(buttonPressSequence []YahtzeeButton) error {
-	for _, btn := range buttonPressSequence {
+	for i, btn := range buttonPressSequence {
 		if err := yc.Press(btn); err != nil {
 			return err
 		}
 
 		time.Sleep(200 * time.Millisecond)
+		// NOTE: Longer wait if pressing the same button repeatedly
+		// to ensure that relay responds and we don't miss a press.
+		if i > 0 && buttonPressSequence[i-1] == btn {
+			time.Sleep(200 * time.Millisecond)
+		}
 	}
 
 	return nil
