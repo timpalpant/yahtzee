@@ -10,14 +10,11 @@ extern "C" {
 
 #include "core.h"
 
-double ArcLength(Contour curve, bool is_closed);
-Contour ApproxPolyDP(Contour curve, double epsilon, bool closed);
 void CvtColor(Mat src, Mat dst, int code);
 void BilateralFilter(Mat src, Mat dst, int d, double sc, double ss);
 void Blur(Mat src, Mat dst, Size ps);
 void Dilate(Mat src, Mat dst, Mat kernel);
 void Erode(Mat src, Mat dst, Mat kernel);
-void MatchTemplate(Mat image, Mat templ, Mat result, int method, Mat mask);
 struct Moment Moments(Mat src, bool binaryImage);
 struct Rect BoundingRect(Contour con);
 double ContourArea(Contour con);

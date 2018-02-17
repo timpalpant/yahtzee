@@ -22,7 +22,7 @@ class OutcomeDistributionRequest {
   }
 }
 
-var game = GameState();
+var game = new GameState();
 var rollBtn = $("#roll-btn");
 rollBtn.click(function(event) {
     $("#die1").attr("src", "images/twos.svg");

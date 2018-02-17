@@ -12,57 +12,6 @@ import (
 	"unsafe"
 )
 
-// ArcLength calculates a contour perimeter or a curve length.
-//
-// For further details, please see:
-//
-// https://docs.opencv.org/3.4.0/d3/dc0/group__imgproc__shape.html#ga8d26483c636be6b35c3ec6335798a47c
-//
-func ArcLength(curve []image.Point, isClosed bool) float64 {
-	cPointSlice := make([]C.struct_Point, len(curve))
-	for i, point := range curve {
-		cPoint := C.struct_Point{
-			x: C.int(point.X),
-			y: C.int(point.Y),
-		}
-		cPointSlice[i] = cPoint
-	}
-
-	cPoints := C.struct_Points{
-		points: (*C.Point)(&cPointSlice[0]),
-		length: C.int(len(curve)),
-	}
-	arcLength := C.ArcLength(cPoints, C.bool(isClosed))
-	return float64(arcLength)
-}
-
-// ApproxPolyDP approximates a polygonal curve(s) with the specified precision.
-//
-// For further details, please see:
-//
-// https://docs.opencv.org/3.4.0/d3/dc0/group__imgproc__shape.html#ga0012a5fdaea70b8a9970165d98722b4c
-//
-func ApproxPolyDP(curve []image.Point, epsilon float64, closed bool) (approxCurve []image.Point) {
-	cPointArray := make([]C.struct_Point, len(curve))
-	for i, r := range curve {
-		cPointArray[i] = C.struct_Point{x: C.int(r.X), y: C.int(r.Y)}
-	}
-	cCurve := C.struct_Points{
-		points: (*C.Point)(&cPointArray[0]),
-		length: C.int(len(curve)),
-	}
-
-	cApproxCurve := C.ApproxPolyDP(cCurve, C.double(epsilon), C.bool(closed))
-	defer C.Points_Close(cApproxCurve)
-	cApproxCurvePoints := (*[1 << 30]C.Point)(unsafe.Pointer(cApproxCurve.points))[:cApproxCurve.length:cApproxCurve.length]
-
-	approxCurve = make([]image.Point, cApproxCurve.length)
-	for i, cPoint := range cApproxCurvePoints {
-		approxCurve[i] = image.Pt(int(cPoint.x), int(cPoint.y))
-	}
-	return
-}
-
 // CvtColor converts an image from one color space to another.
 // It converts the src Mat image to the dst Mat using the
 // code param containing the desired ColorConversionCode color space.
@@ -74,30 +23,30 @@ func CvtColor(src Mat, dst Mat, code ColorConversionCode) {
 	C.CvtColor(src.p, dst.p, C.int(code))
 }
 
-// BilateralFilter applies a bilateral filter to an image.
-//
-// Bilateral filtering is described here:
+// BilateralFilter applies the bilateral filter to an image.
+// The function applies bilateral filtering to the input image, as described in
 // http://www.dai.ed.ac.uk/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
-//
-// BilateralFilter can reduce unwanted noise very well while keeping edges
+// bilateralFilter can reduce unwanted noise very well while keeping edges
 // fairly sharp. However, it is very slow compared to most filters.
 //
 // For further details, please see:
 // https://docs.opencv.org/3.4.0/d4/d86/group__imgproc__filter.html#ga9d7064d478c95d60003cf839430737ed
 //
-func BilateralFilter(src Mat, dst Mat, diameter int, sigmaColor float64, sigmaSpace float64) {
-	C.BilateralFilter(src.p, dst.p, C.int(diameter), C.double(sigmaColor), C.double(sigmaSpace))
+func BilateralFilter(src Mat, dst Mat, d int, sigmaColor float64, sigmaSpace float64) {
+	C.BilateralFilter(src.p, dst.p, C.int(d), C.double(sigmaColor), C.double(sigmaSpace))
 }
 
-// Blur blurs an image Mat using a normalized box filter.
+// Blur blurs an image Mat using a box filter.
+// The function convolves the src Mat image into the dst Mat using
+// the specified Gaussian kernel params.
 //
 // For further details, please see:
-// https://docs.opencv.org/3.4.0/d4/d86/group__imgproc__filter.html#ga8c45db9afe636703801b0b2e440fce37
+// http://docs.opencv.org/3.4.0/d4/d86/group__imgproc__filter.html#gaabe8c836e97159a9193fb0b11ac52cf1
 //
 func Blur(src Mat, dst Mat, ksize image.Point) {
 	pSize := C.struct_Size{
-		width:  C.int(ksize.X),
-		height: C.int(ksize.Y),
+		height: C.int(ksize.X),
+		width:  C.int(ksize.Y),
 	}
 
 	C.Blur(src.p, dst.p, pSize)
@@ -260,33 +209,6 @@ func FindContours(src Mat, mode RetrievalMode, method ContourApproximationMode) 
 	return contours
 }
 
-// TemplateMatchMode is the type of the template matching operation.
-type TemplateMatchMode int
-
-const (
-	// TmSqdiff maps to TM_SQDIFF
-	TmSqdiff TemplateMatchMode = 0
-	// TmSqdiffNormed maps to TM_SQDIFF_NORMED
-	TmSqdiffNormed = 1
-	// TmCcorr maps to TM_CCORR
-	TmCcorr = 2
-	// TmCcorrNormed maps to TM_CCORR_NORMED
-	TmCcorrNormed = 3
-	// TmCcoeff maps to TM_CCOEFF
-	TmCcoeff = 4
-	// TmCcoeffNormed maps to TM_CCOEFF_NORMED
-	TmCcoeffNormed = 5
-)
-
-// MatchTemplate compares a template against overlapped image regions.
-//
-// For further details, please see:
-// https://docs.opencv.org/3.4.0/df/dfb/group__imgproc__object.html#ga586ebfb0a7fb604b35a23d85391329be
-//
-func MatchTemplate(image Mat, templ Mat, result Mat, method TemplateMatchMode, mask Mat) {
-	C.MatchTemplate(image.p, templ.p, result.p, C.int(method), mask.p)
-}
-
 // Moments calculates all of the moments up to the third order of a polygon
 // or rasterized shape.
 //
@@ -356,8 +278,8 @@ const (
 //
 func GetStructuringElement(shape MorphShape, ksize image.Point) Mat {
 	sz := C.struct_Size{
-		width:  C.int(ksize.X),
-		height: C.int(ksize.Y),
+		height: C.int(ksize.X),
+		width:  C.int(ksize.Y),
 	}
 
 	return Mat{p: C.GetStructuringElement(C.int(shape), sz)}
@@ -428,8 +350,8 @@ const (
 func GaussianBlur(src Mat, dst Mat, ksize image.Point, sigmaX float64,
 	sigmaY float64, borderType BorderType) {
 	pSize := C.struct_Size{
-		width:  C.int(ksize.X),
-		height: C.int(ksize.Y),
+		height: C.int(ksize.X),
+		width:  C.int(ksize.Y),
 	}
 
 	C.GaussianBlur(src.p, dst.p, pSize, C.double(sigmaX), C.double(sigmaY), C.int(borderType))
@@ -487,13 +409,13 @@ func Canny(src Mat, edges Mat, t1 float32, t2 float32) {
 //
 func CornerSubPix(img Mat, corners Mat, winSize image.Point, zeroZone image.Point, criteria TermCriteria) {
 	winSz := C.struct_Size{
-		width:  C.int(winSize.X),
-		height: C.int(winSize.Y),
+		height: C.int(winSize.X),
+		width:  C.int(winSize.Y),
 	}
 
 	zeroSz := C.struct_Size{
-		width:  C.int(zeroZone.X),
-		height: C.int(zeroZone.Y),
+		height: C.int(zeroZone.X),
+		width:  C.int(zeroZone.Y),
 	}
 
 	C.CornerSubPix(img.p, corners.p, winSz, zeroSz, criteria.p)

@@ -96,11 +96,6 @@ func NewMatFromScalar(s Scalar, mt MatType) Mat {
 	return Mat{p: C.Mat_NewFromScalar(sVal, C.int(mt))}
 }
 
-// NewMatFromBytes returns a new Mat with a specific size and type, initialized from a []byte.
-func NewMatFromBytes(rows int, cols int, mt MatType, data []byte) Mat {
-	return Mat{p: C.Mat_NewFromBytes(C.int(rows), C.int(cols), C.int(mt), toByteArray(data))}
-}
-
 // Close the Mat object.
 func (m *Mat) Close() error {
 	C.Mat_Close(m.p)
@@ -125,22 +120,8 @@ func (m *Mat) Clone() Mat {
 }
 
 // CopyTo copies Mat into destination Mat.
-//
-// For further details, please see:
-// https://docs.opencv.org/3.4.0/d3/d63/classcv_1_1Mat.html#a33fd5d125b4c302b0c9aa86980791a77
-//
 func (m *Mat) CopyTo(dst Mat) {
 	C.Mat_CopyTo(m.p, dst.p)
-	return
-}
-
-// ConvertTo converts Mat into destination Mat.
-//
-// For further details, please see:
-// https://docs.opencv.org/3.4.0/d3/d63/classcv_1_1Mat.html#adf88c60c5b4980e05bb556080916978b
-//
-func (m *Mat) ConvertTo(dst Mat, mt MatType) {
-	C.Mat_ConvertTo(m.p, dst.p, C.int(mt))
 	return
 }
 
@@ -177,15 +158,6 @@ func (m *Mat) Reshape(cn int, rows int) Mat {
 	return Mat{p: C.Mat_Reshape(m.p, C.int(cn), C.int(rows))}
 }
 
-// ConvertFp16 converts a Mat to half-precision floating point.
-//
-// For further details, please see:
-// https://docs.opencv.org/3.4.0/d2/de8/group__core__array.html#ga9c25d9ef44a2a48ecc3774b30cb80082
-//
-func (m *Mat) ConvertFp16() Mat {
-	return Mat{p: C.Mat_ConvertFp16(m.p)}
-}
-
 // Mean calculates the mean value M of array elements, independently for each channel, and return it as Scalar
 // TODO pass second paramter with mask
 func (m *Mat) Mean() Scalar {
@@ -212,16 +184,6 @@ func (m *Mat) Rows() int {
 // Cols returns the number of columns for this Mat.
 func (m *Mat) Cols() int {
 	return int(C.Mat_Cols(m.p))
-}
-
-// Channels returns the number of channels for this Mat.
-func (m *Mat) Channels() int {
-	return int(C.Mat_Channels(m.p))
-}
-
-// Type returns the type for this Mat.
-func (m *Mat) Type() int {
-	return int(C.Mat_Type(m.p))
 }
 
 // GetUCharAt returns a value from a specific row/col in this Mat expecting it to

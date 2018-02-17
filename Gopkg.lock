@@ -28,12 +28,12 @@
 [[projects]]
   name = "gocv.io/x/gocv"
   packages = ["."]
-  revision = "65d6ebdd323af342cc48ac0d146ef7ad16b33fbc"
-  version = "v0.9.0"
+  revision = "482de6f6c073c24102f57cf3a21a5c8f1712098e"
+  version = "v0.8.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "30db8461fc9c8c5ef1bffa067b59678e2fc9376b03e9e249541b70a0b76b79f3"
+  inputs-digest = "a9667719eff3907565fbe2e700594b36a1ef9af2c9d5568444f79db6159209f5"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -18,10 +18,6 @@ Mat Mat_NewFromScalar(Scalar ar, int type) {
     return new cv::Mat(1, 1, type, c);
 }
 
-Mat Mat_NewFromBytes(int rows, int cols, int type, struct ByteArray buf) {
-    return new cv::Mat(rows, cols, type, buf.data);
-}
-
 // Mat_Close deletes an existing Mat
 void Mat_Close(Mat m) {
     delete m;
@@ -42,10 +38,6 @@ void Mat_CopyTo(Mat m, Mat dst) {
     m->copyTo(*dst);
 }
 
-void Mat_ConvertTo(Mat m, Mat dst, int type) {
-    m->convertTo(*dst, type);
-}
-
 // Mat_ToBytes returns the bytes representation of the underlying data.
 struct ByteArray Mat_ToBytes(Mat m) {
         return toByteArray(reinterpret_cast<const char*>(m->data), m->total() * m->elemSize());
@@ -58,12 +50,6 @@ Mat Mat_Region(Mat m, Rect r) {
 
 Mat Mat_Reshape(Mat m, int cn, int rows) {
     return new cv::Mat(m->reshape(cn, rows));
-}
-
-Mat Mat_ConvertFp16(Mat m) {
-    Mat dst = new cv::Mat();
-    cv::convertFp16(*m, *dst);
-    return dst;
 }
 
 // Mat_Mean calculates the mean value M of array elements, independently for each channel, and return it as Scalar vector
@@ -90,16 +76,6 @@ int Mat_Rows(Mat m) {
 // Mat_Cols returns how many columns in this Mat.
 int Mat_Cols(Mat m) {
     return m->cols;
-}
-
-// Mat_Channels returns how many channels in this Mat.
-int Mat_Channels(Mat m) {
-    return m->channels();
-}
-
-// Mat_Type returns the type from this Mat.
-int Mat_Type(Mat m) {
-    return m->type();
 }
 
 // Mat_GetUChar returns a specific row/col value from this Mat expecting
@@ -234,7 +210,7 @@ void Mat_MinMaxLoc(Mat m, double* minVal, double* maxVal, Point* minLoc, Point* 
 }
 
 void Mat_Normalize(Mat src, Mat dst, double alpha, double beta, int typ) {
-    cv::normalize(*src, *dst, alpha, beta, typ);
+    cv:normalize(*src, *dst, alpha, beta, typ);
 }
 
 double Norm(Mat src1, int normType) {
@@ -247,8 +223,10 @@ TermCriteria TermCriteria_New(int typ, int maxCount, double epsilon) {
 }
 
 void Contours_Close(struct Contours cs) {
-    for (int i = 0; i < cs.length; i++) {
-        Points_Close(cs.contours[i]);
+    Contour *cnt = cs.contours;
+    for (int i = 0; i < cs.length; ++i, cnt++)
+    {
+        delete[] cnt->points;
     }
     delete[] cs.contours;
 }
@@ -256,15 +234,6 @@ void Contours_Close(struct Contours cs) {
 void KeyPoints_Close(struct KeyPoints ks) {
     delete[] ks.keypoints;
 }
-
-void Points_Close(Points ps) {
-    for (size_t i = 0; i < ps.length; i++) {
-        Point_Close(ps.points[i]);
-    }
-    delete[] ps.points;
-}
-
-void Point_Close(Point p) {}
 
 void Rects_Close(struct Rects rs) {
     delete[] rs.rects;
