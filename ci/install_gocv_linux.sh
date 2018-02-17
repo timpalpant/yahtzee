@@ -31,5 +31,4 @@ make -j4
 sudo make install
 sudo ldconfig
 
-make cleanup
 source ./env.sh
