@@ -39,12 +39,12 @@ func NewYahtzeePlayer(detector *detector.YahtzeeDetector,
 func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
 
+	sleep := 3 * time.Second
 	for !yp.game.GameOver() {
 		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.currentScore)
-		time.Sleep(time.Second)
 		yp.controller.Roll()
 		// Wait for roll to complete.
-		time.Sleep(6 * time.Second)
+		time.Sleep(sleep)
 		roll, err := yp.detector.GetCurrentRoll()
 		if err != nil {
 			return err
@@ -77,10 +77,16 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 				if err := yp.hold(roll, resp.HeldDice); err != nil {
 					return err
 				}
+
+				nHeld := len(resp.HeldDice)
+				// Discount sleep time based on number of dice held.
+				sleep = 3 * time.Second - time.Duration(1e9 * float64(nHeld) / 5.0)
 			}
 		case yahtzee.FillBox:
 			box := yahtzee.Box(resp.BoxFilled)
-			yp.fillBox(box, roll)
+			scoreAdded := yp.fillBox(box, roll)
+			// Sleep extra long proportionally to score to be added.
+			sleep = 4 * time.Second + time.Duration(1e9 * float64(scoreAdded) / 50.0)
 		}
 
 		yp.prevRoll = roll
@@ -164,7 +170,7 @@ func (yp *YahtzeePlayer) fillBoxEarly(roll []int, scoreToBeat int) error {
 	return nil
 }
 
-func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) {
+func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) int {
 	roll := yahtzee.NewRollFromDice(dice)
 	game, addValue := yp.game.FillBox(box, roll)
 	glog.Infof("Best option is to play: %v for %v points", box, addValue)
@@ -173,6 +179,9 @@ func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) {
 	if len(yp.game.AvailableBoxes()) > 1 {
 		buttonPressSequence := yp.computeFillPresses(box, roll)
 		yp.controller.Perform(buttonPressSequence)
+		// Need a small sleep after Enter, otherwise Roll press is not
+		// detected correctly.
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	// Next turn. Note: Held dice reset.
@@ -182,6 +191,8 @@ func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) {
 	for die := range yp.held {
 		yp.held[die] = false
 	}
+
+	return addValue
 }
 
 func (yp *YahtzeePlayer) computeFillPresses(box yahtzee.Box, roll yahtzee.Roll) []controller.YahtzeeButton {
