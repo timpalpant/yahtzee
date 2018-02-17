@@ -97,25 +97,27 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 }
 
 func (yp *YahtzeePlayer) checkUnexpectedRollChange(roll []int) error {
-	if yp.lastRoll == nil {
+	if yp.prevRoll == nil {
 		return nil
 	}
 
-	if len(roll) != len(held) {
+	if len(roll) != len(yp.held) {
 		return fmt.Errorf(
 			"unexpectednumber of dice in roll: got %v, expected %v",
-			len(roll), len(held))
+			len(roll), len(yp.held))
 	}
 
 	for die, held := range yp.held {
 		if held {
-			if roll[die] != yp.lastRoll[die] {
+			if roll[die] != yp.prevRoll[die] {
 				return fmt.Errorf(
 					"unexpected roll change: die %v [HELD], was: %v, now: %v",
-					die, yp.lastRoll[die], roll[die])
+					die, yp.prevRoll[die], roll[die])
 			}
 		}
 	}
+
+	return nil
 }
 
 func (yp *YahtzeePlayer) hold(roll, diceToKeep []int) error {

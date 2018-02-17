@@ -188,11 +188,7 @@ func (d *YahtzeeDetector) getCurrentImage(img gocv.Mat) {
 }
 
 func (d *YahtzeeDetector) saveImage(frame []byte) (string, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return "", err
-	}
-
+	id := uuid.NewV4()
 	outputFile := path.Join(d.outDir, fmt.Sprintf("%s.jpg", id.String()))
 	glog.V(1).Infof("Saving: %v", outputFile)
 	f, err := os.Create(outputFile)
