@@ -80,10 +80,43 @@ def select_dice_regions(regions: list):
         aspect_ratio = width / height
         if 0.9 < aspect_ratio < 1.1 and 200 < r.area < 500:
             candidates.append(r)
+    candidates = remove_overlapping(candidates)
     return squares_in_a_line(candidates, 5)
 
 
-def squares_in_a_line(candidates:list, n:int):
+def remove_overlapping(candidates: list):
+    remaining = []
+    for region1 in sorted(candidates, key=area):
+        area1 = area(region1)
+        for region2 in remaining:
+            area2 = area(region2)
+            if overlap_area(region1, region2) > area1 / 2.0:
+                break
+        else:
+            remaining.append(region1)
+    return remaining
+
+
+def area(region):
+    minr, minc, maxr, maxc = region.bbox
+    height = maxr - minr
+    width = maxc - minc
+    return width * height
+
+
+def overlap_area(region1, region2):
+    minr1, minc1, maxr1, maxc1 = region1.bbox
+    minr2, minc2, maxr2, maxc2 = region2.bbox
+    minr = max(minr1, minr2)
+    minc = max(minc1, minc2)
+    maxr = min(maxr1, maxr2)
+    maxc = min(maxc1, maxc2)
+    height = max(maxr - minr, 0)
+    width = max(maxc - minc, 0)
+    return width * height
+
+
+def squares_in_a_line(candidates: list, n: int):
     # Of the given candidates, return the n that are most linear.
     if len(candidates) < n:
         return candidates
