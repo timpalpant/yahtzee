@@ -20,6 +20,7 @@ type YahtzeePlayer struct {
 	game         yahtzee.GameState
 	turnStep     yahtzee.TurnStep
 	held         []bool
+	prevRoll     []int
 	currentScore int
 }
 
@@ -47,6 +48,8 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 		roll, err := yp.detector.GetCurrentRoll()
 		if err != nil {
 			return err
+		} else if err := yp.checkUnexpectedRollChange(roll); err != nil {
+			glog.Warning(err)
 		}
 
 		glog.Infof("Detected roll: %v", roll)
@@ -79,10 +82,34 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			box := yahtzee.Box(resp.BoxFilled)
 			yp.fillBox(box, roll)
 		}
+
+		yp.prevRoll = roll
 	}
 
 	glog.Infof("Final score: %v", yp.currentScore)
 	return nil
+}
+
+func (yp *YahtzeePlayer) checkUnexpectedRollChange(roll []int) error {
+	if yp.lastRoll == nil {
+		return nil
+	}
+
+	if len(roll) != len(held) {
+		return fmt.Errorf(
+			"unexpectednumber of dice in roll: got %v, expected %v",
+			len(roll), len(held))
+	}
+
+	for die, held := range yp.held {
+		if held {
+			if roll[die] != yp.lastRoll[die] {
+				return fmt.Errorf(
+					"unexpected roll change: die %v [HELD], was: %v, now: %v",
+					die, yp.lastRoll[die], roll[die])
+			}
+		}
+	}
 }
 
 func (yp *YahtzeePlayer) hold(roll, diceToKeep []int) error {
