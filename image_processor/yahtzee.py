@@ -80,7 +80,9 @@ def select_dice_regions(regions: list):
         aspect_ratio = width / height
         if 0.9 < aspect_ratio < 1.1 and 200 < r.area < 500:
             candidates.append(r)
+    logger.debug("%d dice candidates after size/aspect ratio filters", len(candidates))
     candidates = remove_overlapping(candidates)
+    logger.debug("%d dice candidates after removing overlaps", len(candidates))
     return squares_in_a_line(candidates, 5)
 
 
@@ -90,7 +92,9 @@ def remove_overlapping(candidates: list):
         area1 = area(region1)
         for region2 in remaining:
             area2 = area(region2)
-            if overlap_area(region1, region2) > area1 / 2.0:
+            # If region overlaps with > 50% of previously-selected
+            # region, skip it.
+            if overlap_area(region1, region2) > area2 / 2.0:
                 break
         else:
             remaining.append(region1)
@@ -117,19 +121,26 @@ def overlap_area(region1, region2):
 
 
 def squares_in_a_line(candidates: list, n: int):
-    # Of the given candidates, return the n that are most linear.
+    # Of the given candidates, return the n that have
+    # approximately the same height and width, and fall
+    # in a regularly spaced horizontal line.
     if len(candidates) < n:
         return candidates
 
     scores = []
     for regions in itertools.combinations(candidates, n):
-        regions = sorted(regions, key=lambda r: r.bbox)
         widths = [r.bbox[3] - r.bbox[1] for r in regions]
         heights = [r.bbox[2] - r.bbox[0] for r in regions]
+        # Sort regions by their left edge, left to right.
+        regions = sorted(regions, key=lambda r: r.bbox[1])
+        # Calculate left edge-to-edge distance.
         horizontal_spacing = [regions[i+1].bbox[1] - regions[i].bbox[1]
                               for i in range(len(regions)-1)]
-        vertical_spacing = [regions[i+1].bbox[2] - regions[i].bbox[0]
-                            for i in range(len(regions)-1)]
+        # Sort regions by their top edge, top to bottom.
+        regions = sorted(regions, key=lambda r: r.bbox[0])
+        # Calculate distance from top edge of each box to the first one.
+        vertical_spacing = [other.bbox[0] - regions[0].bbox[0]
+                            for other in regions[1:]]
         sizing_var = np.var(widths) + np.var(heights)
         spacing_var = np.var(horizontal_spacing) + np.var(vertical_spacing)
         total_var = sizing_var + spacing_var
