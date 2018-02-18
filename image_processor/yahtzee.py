@@ -41,6 +41,10 @@ def classify_die(die_image):
         if r > max_corr:
             max = candidate
             max_corr = r
+
+    if max is None:
+        raise ValueError("Failed to find any template with positive correlation")
+
     return max
 
 
