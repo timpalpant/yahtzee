@@ -40,6 +40,8 @@ func main() {
 	server := server.NewYahtzeeServer(highScoreStrat, expectedScoreStrat)
 	http.Handle("/",
 		gziphandler.GzipHandler(http.HandlerFunc(server.Index)))
+	http.Handle("/rest/v1/score",
+		gziphandler.GzipHandler(http.HandlerFunc(server.GetScore)))
 	http.Handle("/rest/v1/optimal_move",
 		gziphandler.GzipHandler(http.HandlerFunc(server.OptimalMove)))
 	http.Handle("/rest/v1/outcome_distribution",

@@ -55,7 +55,7 @@ func NewRollOfDie(die, count int) Roll {
 func NewRollFromDice(dice []int) Roll {
 	r := NewRoll()
 	for _, die := range dice {
-		r += NewRollOfDie(die, 1)
+		r = r.Add(die)
 	}
 
 	return r

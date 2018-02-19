@@ -31,6 +31,26 @@ func (ys *YahtzeeServer) Index(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, struct{}{})
 }
 
+func (ys *YahtzeeServer) GetScore(w http.ResponseWriter, r *http.Request) {
+	req := GetScoreRequest{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	box := yahtzee.Box(req.Box)
+	roll := yahtzee.NewRollFromDice(req.Dice)
+	score := box.Score(roll)
+
+	resp := GetScoreResponse{Score: score}
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		glog.Warning(err)
+	}
+}
+
 func (ys *YahtzeeServer) OptimalMove(w http.ResponseWriter, r *http.Request) {
 	req := &OptimalMoveRequest{}
 	err := json.NewDecoder(r.Body).Decode(req)
