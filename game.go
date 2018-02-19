@@ -161,7 +161,8 @@ func nativeUpperHalfBox(yahtzeeRoll Roll) Box {
 type TurnStep int
 
 const (
-	Hold1 TurnStep = iota
+	Begin TurnStep = iota
+	Hold1
 	Hold2
 	FillBox
 )

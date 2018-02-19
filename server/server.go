@@ -35,6 +35,7 @@ func (ys *YahtzeeServer) GetScore(w http.ResponseWriter, r *http.Request) {
 	req := GetScoreRequest{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
+		glog.Warning(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -55,12 +56,14 @@ func (ys *YahtzeeServer) OptimalMove(w http.ResponseWriter, r *http.Request) {
 	req := &OptimalMoveRequest{}
 	err := json.NewDecoder(r.Body).Decode(req)
 	if err != nil {
+		glog.Warning(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	resp, err := ys.getOptimalMove(req)
 	if err != nil {
+		glog.Warning(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -78,12 +81,14 @@ func (ys *YahtzeeServer) OutcomeDistribution(w http.ResponseWriter, r *http.Requ
 	req := &OutcomeDistributionRequest{}
 	err := json.NewDecoder(r.Body).Decode(req)
 	if err != nil {
+		glog.Warning(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	resp, err := ys.getOutcomes(req)
 	if err != nil {
+		glog.Warning(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -183,12 +188,15 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 		scoreDistributions := hsOpt.GetHold2Outcomes(roll)
 		resp.HoldChoices = formatHoldChoices(expectedScores, scoreDistributions)
 	case yahtzee.FillBox:
-		expectedScores := esOpt.GetFillOutcomes(roll)
-		scoreDistributions := hsOpt.GetFillOutcomes(roll)
-		resp.FillChoices = formatFillChoices(expectedScores, scoreDistributions)
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
+
+	// Always compute the fill outcomes, since a player may choose to fill
+	// a box after only the first or second roll.
+	expectedScores := esOpt.GetFillOutcomes(roll)
+	scoreDistributions := hsOpt.GetFillOutcomes(roll)
+	resp.FillChoices = formatFillChoices(expectedScores, scoreDistributions)
 
 	return resp, nil
 }
