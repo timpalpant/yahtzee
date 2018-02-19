@@ -1,0 +1,31 @@
+.dice-row {
+    display: flex;
+    justify-content: space-between;
+}
+
+.die {
+    text-align: center;
+}
+
+.roll-btn {
+    height: 52px;
+    margin: 3px;
+    padding-top: 11px;
+}
+
+.expected-score {
+    padding-bottom: 30px;
+}
+
+.box {
+    text-align: center;
+}
+
+.box button {
+    padding: 1px 8px 1px 8px;
+}
+
+.new-game-container {
+    text-align: center;
+    margin-top: 30px;
+}

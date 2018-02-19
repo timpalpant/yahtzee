@@ -6,6 +6,12 @@
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/css/yahtzee.css" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
 
     <title>YAHTZEE</title>
   </head>
@@ -24,27 +30,39 @@
               </tr>
               <tr>
                 <th scope="row">Aces <img src="/static/images/ones.svg" height="20"/> = 1</th>
-                <td id="ones-score"></td>
+                <td id="ones-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Twos <img src="/static/images/twos.svg" height="20"/> = 2</th>
-                <td id="twos-score"></td>
+                <td id="twos-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Threes <img src="/static/images/threes.svg" height="20"/> = 3</th>
-                <td id="threes-score"></td>
+                <td id="threes-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Fours <img src="/static/images/fours.svg" height="20"/> = 4</th>
-                <td id="fours-score"></td>
+                <td id="fours-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Fives <img src="/static/images/fives.svg" height="20"/> = 5</th>
-                <td id="fives-score"></td>
+                <td id="fives-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Sixes <img src="/static/images/sixes.svg" height="20"/> = 6</th>
-                <td id="sixes-score"></td>
+                <td id="sixes-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">TOTAL SCORE</th>
@@ -65,31 +83,45 @@
               </tr>
               <tr>
                 <th scope="row">3 of a kind</th>
-                <td id="three-of-a-kind-score"></td>
+                <td id="three-of-a-kind-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">4 of a kind</th>
-                <td id="four-of-a-kind-score"></td>
+                <td id="four-of-a-kind-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Full House</th>
-                <td id="full-house-score"></td>
+                <td id="full-house-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Sm. Straight <small>Sequence of 4</small></th>
-                <td id="small-straight-score"></td>
+                <td id="small-straight-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Lg. Straight <small>Sequence of 5</small></th>
-                <td id="large-straight-score"></td>
-              </tr>
-              <tr>
-                <th scope="row">YAHTZEE <small>5 of a kind</small></th>
-                <td id="yahtzee-score"></td>
+                <td id="large-straight-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">Chance</th>
-                <td id="chance-score"></td>
+                <td id="chance-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">YAHTZEE <small>5 of a kind</small></th>
+                <td id="yahtzee-score" class="box">
+                  <button class="btn btn-sm">Fill</button>
+                </td>
               </tr>
               <tr>
                 <th scope="row">YAHTZEE BONUS</th>
@@ -110,25 +142,40 @@
         </div>
         <div class="col">
           <canvas id="score-distribution"></canvas>
-          <div class="text-center" style="padding-bottom: 30px">Expected score = 254</div>
-          <div class="row-fluid" style="display: flex; justify-content: space-between">
-            <button type="button" class="btn btn-primary" data-toggle="button" aria-pressed="false" autocomplete="off">
-              <img id="die1" src="/static/images/blank.svg" height="60px"/>
-            </button>
-            <a href="#hold2"><img id="die2" src="/static/images/blank.svg" height="60px"/></a>
-            <a href="#hold3"><img id="die3" src="/static/images/blank.svg" height="60px"/></a>
-            <a href="#hold4"><img id="die4" src="/static/images/blank.svg" height="60px"/></a>
-            <a href="#hold5"><img id="die5" src="/static/images/blank.svg" height="60px"/></a>
-            <a href="#" id="roll-btn" class="btn btn-dark btn-lg" style="margin: 3px; padding-top: 11px">ROLL</a>
+          <div class="expected-score text-center">Expected score = 254</div>
+
+          <div class="dice-row row-fluid">
+            <div class="die">
+              <a href="#hold1"><img id="die1" class="die-img" src="/static/images/blank.svg" height="60px"/></a></br>
+              <span id="die1-held" class="held-indicator d-none">HELD</span>
+            </div>
+            <div class="die">
+              <a href="#hold2"><img id="die2" class="die-img" src="/static/images/blank.svg" height="60px"/></a></br>
+              <span id="die2-held" class="held-indicator d-none">HELD</span>
+            </div>
+            <div class="die">
+              <a href="#hold3"><img id="die3" class="die-img" src="/static/images/blank.svg" height="60px"/></a></br>
+              <span id="die3-held" class="held-indicator d-none">HELD</span>
+            </div>
+            <div class="die">
+              <a href="#hold4"><img id="die4" class="die-img" src="/static/images/blank.svg" height="60px"/></a></br>
+              <span id="die4-held" class="held-indicator d-none">HELD</span>
+            </div>
+            <div class="die">
+              <a href="#hold5"><img id="die5" class="die-img" src="/static/images/blank.svg" height="60px"/></a></br>
+              <span id="die5-held" class="held-indicator d-none">HELD</span>
+            </div>
+
+            <button id="roll-btn" class="btn btn-dark btn-lg roll-btn">ROLL</button>
+          </div>
+
+          <div class="new-game-container">
+            <button id="new-game-btn" class="btn btn-danger">New Game</button>
           </div>
         </div>
       </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js"></script>
     <script src="/static/js/yahtzee.js"></script>
   </body>
 </html>
