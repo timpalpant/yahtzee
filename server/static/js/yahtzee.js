@@ -1,12 +1,18 @@
-var NUM_TURNS = 13;
-var NUM_DICE = 5;
+/*
+ *  Game constants.
+ */
 
-var TURN_BEGIN = 0;
-var TURN_HOLD1 = 1;
-var TURN_HOLD2 = 2;
-var TURN_FILL_BOX = 3;
+let NUM_TURNS = 13;
+let NUM_DICE = 5;
 
-var DIE_SIDE_IMAGES = [
+let TURN_BEGIN = 0;
+let TURN_HOLD1 = 1;
+let TURN_HOLD2 = 2;
+let TURN_FILL_BOX = 3;
+
+let YAHTZEE_BONUS = 100;
+
+let DIE_SIDE_IMAGES = [
   "/static/images/blank.svg",
   "/static/images/ones.svg",
   "/static/images/twos.svg",
@@ -15,6 +21,10 @@ var DIE_SIDE_IMAGES = [
   "/static/images/fives.svg",
   "/static/images/sixes.svg",
 ];
+
+/*
+ *  Core models for tracking game state.
+ */
 
 class Die {
   constructor() {
@@ -31,13 +41,71 @@ class GameState {
       this.dice.push(new Die());
     }
 
+    this.yahtzeeBonus = 0;
+
     this.turn = 0;
     this.turnState = TURN_BEGIN;
+  }
+
+  get upperHalfScore() {
+    var total = 0;
+    for (var i = 0; i < 6; i++) {
+      if (this.boxes[i] !== null) {
+        total += this.boxes[i];
+      }
+    }
+
+    return total;
+  }
+
+  get upperHalfBonus() {
+    return game.upperHalfScore >= 63 ? 35 : 0;
+  }
+
+  get upperHalfTotal() {
+    return this.upperHalfScore + this.upperHalfBonus;
+  }
+
+  get lowerHalfTotal() {
+    var total = 0;
+    for (var i = 6; i < this.boxes.length; i++) {
+      if (this.boxes[i] !== null) {
+        total += this.boxes[i];
+      }
+    }
+
+    return total;
+  }
+
+  get grandTotal() {
+    return this.upperHalfTotal + this.lowerHalfTotal + this.yahtzeeBonus;
+  }
+
+  get upperHalfFilled() {
+    for (var i = 0; i < 6; i++) {
+      if (this.boxes[i] === null) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   get yahtzeeBonusEligible() {
     var yahtzeeBox = this.boxes[this.boxes.length - 1];
     return (yahtzeeBox !== null && yahtzeeBox > 0);
+  }
+
+  get currentRoll() {
+    return this.dice.map((die) => die.side);
+  }
+
+  get heldDice() {
+    return this.dice.filter((die) => die.held).map((die) => die.side).sort();
+  }
+
+  isFilled(box) {
+    return this.boxes[box] !== null;
   }
 
   hold(die) {
@@ -46,7 +114,31 @@ class GameState {
   }
 
   fill(box) {
-    console.log("Filling box " + box);
+    if (isYahtzee(this.currentRoll) && this.yahtzeeBonusEligible()) {
+      console.log("Applying Yahtzee joker bonus");
+      this.yahtzeeBonus += YAHTZEE_BONUS;
+    }
+
+    console.log("Filling box " + box + " with roll " + this.currentRoll);
+    $.ajax({
+      type: "POST",
+      async: false,
+      dataType: "json",
+      data: JSON.stringify({"box": box, "dice": this.currentRoll}),
+      url: "/rest/v1/score",
+      success: (resp) => {
+        this.nextTurn(box, resp.Score);
+      },
+      error: (resp) => {
+        console.log(resp);
+        window.alert("Error getting score: "+resp);
+      }
+    });
+  }
+
+  nextTurn(box, score) {
+    console.log("Scored " + score + " points");
+    this.boxes[box] = score;
     this.turn++;
     this.turnState = TURN_BEGIN;
     for (let die of this.dice) {
@@ -57,11 +149,6 @@ class GameState {
 
   roll() {
     console.log("Rolling dice");
-    if (this.turnState == TURN_FILL_BOX) {
-      console.error("Trying to roll dice at an inappropriate time");
-      return;
-    }
-
     for (var i = 0; i < this.dice.length; i++) {
       var die = this.dice[i];
       if (!die.held) {
@@ -75,30 +162,113 @@ class GameState {
   }
 }
 
-/**
- * Returns a random integer between min (inclusive) and max (inclusive)
- * Using Math.round() will give you a non-uniform distribution!
- */
-function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+class OutcomeCalculator {
+  constructor(game, chart) {
+    this.game = game;
+    this.chart = chart;
+    this.initChart();
+  }
+
+  get gameStateRequest() {
+    return {
+      "GameState": {
+        "Filled": this.game.boxes.map((box) => box !== null),
+        "YahtzeeBonusEligible": this.game.yahtzeeBonusEligible,
+        "UpperHalfScore": this.game.upperHalfScore,
+      },
+      "TurnState": {
+        "Step": this.game.turnState,
+        "Dice": this.game.currentRoll
+      }
+    };
+  }
+
+  initChart() {
+    this.chart.data = {
+      labels: Array.from({length: 500}, (x, i) => i),
+      datasets: [{
+        label: 'Probability of Reaching Score',
+        steppedLine: true,
+      }]
+    }
+    this.chart.update();
+  }
+
+  update() {
+    if (this.game.turnState == TURN_BEGIN) {
+      // Can't update outcome distribution until roll.
+      return;
+    }
+
+    $.ajax({
+      type: "POST",
+      dataType: "json",
+      data: JSON.stringify(this.gameStateRequest),
+      url: "/rest/v1/outcome_distribution",
+      success: (resp) => {
+        this.onSuccess(resp);
+      },
+      error: (resp) => {
+        console.log(resp);
+        window.alert("Error fetching outcome distribution: "+resp);
+      },
+    });
+  }
+
+  onSuccess(resp) {
+    console.log(resp);
+    this.allOptions = resp;
+    this.renderHoldChoice();
+  }
+
+  get currentHoldChoice() {
+    // Get the outcome distribution corresponding to the current held dice.
+    let heldDice = this.game.heldDice;
+    for (let choice of this.allOptions.HoldChoices) {
+      if (isArrayEqual(heldDice, choice.HeldDice)) {
+        return choice;
+      }
+    }
+  }
+
+  renderHoldChoice() {
+    let current = this.currentHoldChoice;
+    this.chart.data.datasets[0].data = current.FinalScoreDistribution;
+    this.chart.update();
+  }
+
+  renderFillChoice(box) {
+    this.chart.data.datasets[0].data = Array.from({length: 500}, (x, i) => i);
+    this.chart.update();
+  }
 }
 
-function getOutcomeDistribution() {
-  $.ajax({
-    type: "POST",
-    dataType: "json",
-    data: req,
-    url: "/rest/v1/outcome_distribution",
-    success: updateOutcomeDistribution,
-    error: function(resp) {
-      window.alert("Error fetching outcome distribution: "+resp);
+// Global state variables representing current game state.
+var ctx = $("#score-distribution");
+var chart = new Chart(ctx, {
+  type: 'line',
+  data: {},
+  options: {
+    scales: {
+      yAxes: [{
+        ticks: {
+          beginAtZero: true
+        }
+      }]
     },
-  });
-}
+    elements: {
+      line: {
+        tension: 0, // disables bezier curves
+      }
+    }
+  }
+});
+var game = new GameState();
+var outcomes = new OutcomeCalculator(game, chart);
 
-function updateOutcomeDistribution(resp) {
-
-}
+/*
+ *  Rendering functions to render the current game state as display.
+ */
 
 var $newGameBtn = $("#new-game-btn");
 var $rollBtn = $("#roll-btn");
@@ -115,13 +285,13 @@ function renderDice() {
 
     // Show HELD indicator if die is held.
     if (die.held) {
-      $(this).find(".held-indicator").removeClass("d-none");
+      $(this).find(".held-indicator").removeClass("invisible");
     } else {
-      $(this).find(".held-indicator").addClass("d-none");
+      $(this).find(".held-indicator").addClass("invisible");
     }
   });
 
-  var rollEnabled = game.turnState < TURN_FILL_BOX;
+  var rollEnabled = (game.turn < NUM_TURNS && game.turnState < TURN_FILL_BOX);
   if (rollEnabled) {
     $rollBtn.removeClass("disabled");
   } else {
@@ -130,70 +300,126 @@ function renderDice() {
 }
 
 function renderScoreTable() {
+  // Show score if already filled, else fill button.
+  $boxes.each(function(index) {
+    var $box = $(this);
+    if (game.isFilled(index)) {
+      $box.find("button").addClass("invisible");
+      $box.text(game.boxes[index]);
+    } else {
+      $box.find("button").removeClass("invisible");
+    }
+  });
 
+  // Fill buttons enabled?
+  if (game.turnState == TURN_BEGIN) {
+    $boxes.find("button").addClass("disabled");
+  } else {
+    $boxes.find("button").removeClass("disabled");
+  }
+
+  // Upper-half totals.
+  $("#upper-half-score").text(game.upperHalfScore);
+  $("#upper-half-total").text(game.upperHalfTotal);
+  var bonus = game.upperHalfBonus;
+  if (bonus === 0 && !game.upperHalfFilled) {
+    bonus = "";
+  }
+  $("#upper-half-bonus").text(bonus);
+
+  // Lower-half totals.
+  $("#yahtzee-bonus").text(game.yahtzeeBonus);
+  $("#lower-half-total").text(game.lowerHalfTotal);
+  $("#grand-total-score").text(game.grandTotal);
 }
 
-// Global representing current game state.
-var game = new GameState();
+function render() {
+  renderDice();
+  renderScoreTable();
+}
 
-// Hook up all the user interaction to the appropriate
-// game state modifications and re-rendering.
+/*
+ * Wiring to hook up all the user interaction to the appropriate
+ * game state modifications and re-rendering.
+ */
+
+// New game button.
 $newGameBtn.click(function() { location.reload() });
 
+// Roll button.
 $rollBtn.click(function() {
+  if (game.turnState == TURN_FILL_BOX) {
+    console.warn("Trying to roll dice at an inappropriate time");
+    return;
+  }
+
   game.roll();
-  renderDice();
+  outcomes.update();
 });
 
+// Clicking on each of the dice to toggle held state.
 $dice.find("a").each(function(index) {
   $(this).click(function() {
+    if (game.turnState == TURN_BEGIN) {
+      console.warn("Trying to hold dice before they have been rolled");
+      return;
+    }
+
     game.hold(index);
-    renderDice();
+    outcomes.update();
   });
 });
 
+// Clicking on a box to play the current roll in that box.
 $boxes.find("button").each(function(index) {
   $(this).click(function() {
+    if (game.turnState == TURN_BEGIN) {
+      console.warn("Trying to fill box before dice have been rolled");
+      return;
+    }
+
     game.fill(index);
-    renderScoreTable();
-    renderDice();
+    outcomes.update();
+  });
+
+  $(this).mouseenter(function() {
+    outcomes.renderFillChoice(index);
+  }).mouseleave(function() {
+    outcomes.renderHoldChoice();
   });
 });
 
-var ctx = document.getElementById("score-distribution").getContext('2d');
-var myChart = new Chart(ctx, {
-  type: 'line',
-  data: {
-      labels: ["Red", "Blue", "Yellow", "Green", "Purple", "Orange"],
-      datasets: [{
-          label: '# of Votes',
-          data: [12, 19, 3, 5, 2, 3],
-          backgroundColor: [
-              'rgba(255, 99, 132, 0.2)',
-              'rgba(54, 162, 235, 0.2)',
-              'rgba(255, 206, 86, 0.2)',
-              'rgba(75, 192, 192, 0.2)',
-              'rgba(153, 102, 255, 0.2)',
-              'rgba(255, 159, 64, 0.2)'
-          ],
-          borderColor: [
-              'rgba(255,99,132,1)',
-              'rgba(54, 162, 235, 1)',
-              'rgba(255, 206, 86, 1)',
-              'rgba(75, 192, 192, 1)',
-              'rgba(153, 102, 255, 1)',
-              'rgba(255, 159, 64, 1)'
-          ],
-          borderWidth: 1
-      }]
-  },
-  options: {
-      scales: {
-          yAxes: [{
-              ticks: {
-                  beginAtZero:true
-              }
-          }]
-      }
+/*
+ * Helper functions
+ */
+
+/**
+ * Returns a random integer between min (inclusive) and max (inclusive)
+ * Using Math.round() will give you a non-uniform distribution!
+ */
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Check whether the given roll of dice is a Yahtzee.
+ */
+function isYahtzee(roll) {
+  if (roll === null || roll.length === 0) {
+    return false;
   }
-});
+
+  var first = roll[0];
+  for (var i = 1; i < roll.length; i++) {
+    if (roll[i] != first) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isArrayEqual(arr1, arr2) {
+  return arr1.length === arr2.length &&
+    arr1.every( function(this_i, i) { return this_i == arr2[i] } )
+}
