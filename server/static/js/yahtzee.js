@@ -167,6 +167,9 @@ class OutcomeCalculator {
     this.game = game;
     this.chart = chart;
     this.initChart();
+
+    this.currentTurn = null;
+    this.currentTurnState = null;
   }
 
   get gameStateRequest() {
@@ -194,9 +197,17 @@ class OutcomeCalculator {
     this.chart.update();
   }
 
-  update() {
+  update(callback) {
     if (this.game.turnState == TURN_BEGIN) {
       // Can't update outcome distribution until roll.
+      callback();
+      return;
+    }
+
+    if (this.game.turn == this.currentTurn && this.game.turnState == this.currentTurnState) {
+      // Data is already up-to-date.
+      this.setHoldChoice();
+      callback();
       return;
     }
 
@@ -207,6 +218,7 @@ class OutcomeCalculator {
       url: "/rest/v1/outcome_distribution",
       success: (resp) => {
         this.onSuccess(resp);
+        callback();
       },
       error: (resp) => {
         console.log(resp);
@@ -216,9 +228,11 @@ class OutcomeCalculator {
   }
 
   onSuccess(resp) {
-    console.log(resp);
     this.allOptions = resp;
-    this.renderHoldChoice();
+    this.currentTurn = this.game.turn;
+    this.currentTurnState = this.game.turnState;
+
+    this.setHoldChoice();
   }
 
   get currentHoldChoice() {
@@ -231,15 +245,14 @@ class OutcomeCalculator {
     }
   }
 
-  renderHoldChoice() {
+  setHoldChoice() {
     let current = this.currentHoldChoice;
     this.chart.data.datasets[0].data = current.FinalScoreDistribution;
-    this.chart.update();
   }
 
-  renderFillChoice(box) {
-    this.chart.data.datasets[0].data = Array.from({length: 500}, (x, i) => i);
-    this.chart.update();
+  setFillChoice(box) {
+    let current = this.allOptions.FillChoices[box];
+    this.chart.data.datasets[0].data = current.FinalScoreDistribution;
   }
 }
 
@@ -333,9 +346,15 @@ function renderScoreTable() {
   $("#grand-total-score").text(game.grandTotal);
 }
 
+function renderAdvice() {
+
+}
+
 function render() {
   renderDice();
   renderScoreTable();
+  renderAdvice();
+  chart.update();
 }
 
 /*
@@ -354,7 +373,7 @@ $rollBtn.click(function() {
   }
 
   game.roll();
-  outcomes.update();
+  outcomes.update(render);
 });
 
 // Clicking on each of the dice to toggle held state.
@@ -366,7 +385,7 @@ $dice.find("a").each(function(index) {
     }
 
     game.hold(index);
-    outcomes.update();
+    outcomes.update(render);
   });
 });
 
@@ -379,13 +398,15 @@ $boxes.find("button").each(function(index) {
     }
 
     game.fill(index);
-    outcomes.update();
+    outcomes.update(render);
   });
 
   $(this).mouseenter(function() {
-    outcomes.renderFillChoice(index);
+    outcomes.setFillChoice(index);
+    render();
   }).mouseleave(function() {
-    outcomes.renderHoldChoice();
+    outcomes.setHoldChoice();
+    render();
   });
 });
 
