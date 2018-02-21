@@ -351,6 +351,7 @@ let $newGameBtn = $("#new-game-btn");
 let $gameTypeSelector = $("#game-type-selector");
 let $highScoreInput = $("#high-score-input");
 let $rollBtn = $("#roll-btn");
+let $spinner = $('<span>Roll <i class="fa fa-spinner fa-spin"></i></span>');
 let $dice = $(".die");
 let $boxes = $(".box");
 
@@ -510,6 +511,7 @@ $rollBtn.click(function() {
   }
 
   game.roll();
+  $rollBtn.html($spinner);
   outcomes.update(render);
 });
 
