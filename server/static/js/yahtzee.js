@@ -278,7 +278,7 @@ class OutcomeCalculator {
     var bestChoice = null;
     var bestScore = 0;
     for (let choice of outcomes.allOptions.HoldChoices) {
-      let s = score(choice);
+      let s = this.score(choice);
       if (s >= bestScore) {
         bestChoice = choice;
         bestScore = s;
@@ -292,7 +292,7 @@ class OutcomeCalculator {
     var bestChoice = null;
     var bestScore = 0;
     for (let choice of this.allOptions.FillChoices) {
-      let s = score(choice);
+      let s = this.score(choice);
       if (s >= bestScore) {
         bestChoice = choice;
         bestScore = s;
@@ -300,6 +300,35 @@ class OutcomeCalculator {
     }
 
     return bestChoice.BoxFilled;
+  }
+
+  get bestPossibleScore() {
+    var best = 0;
+    if (this.allOptions === null) {
+      return best;
+    }
+
+    if (this.allOptions.HoldChoices !== null) {
+      for (let choice of this.allOptions.HoldChoices) {
+        best = Math.max(this.score(choice), best);
+      }
+    }
+
+    if (this.allOptions.FillChoices !== null) {
+      for (let choice of this.allOptions.FillChoices) {
+        best = Math.max(this.score(choice), best);
+      }
+    }
+
+    return best;
+  }
+
+  score(choice) {
+    if (outcomes.gameType === EXPECTED_VALUE) {
+      return choice.ExpectedFinalScore;
+    } else {
+      return choice.FinalScoreDistribution[outcomes.scoreToBeat];
+    }
   }
 
   setFillChoice(box) {
@@ -350,6 +379,8 @@ let outcomes = new OutcomeCalculator(game, chart);
 let $newGameBtn = $("#new-game-btn");
 let $gameTypeSelector = $("#game-type-selector");
 let $highScoreInput = $("#high-score-input");
+let $quitWarning = $("#quit-warning");
+
 let $rollBtn = $("#roll-btn");
 let $spinner = $('<span>Roll <i class="fa fa-spinner fa-spin"></i></span>');
 let $dice = $(".die");
@@ -419,14 +450,6 @@ function renderScoreTable() {
   $("#grand-total-score").text(game.grandTotal);
 }
 
-function score(choice) {
-  if (outcomes.gameType === EXPECTED_VALUE) {
-    return choice.ExpectedFinalScore;
-  } else {
-    return choice.FinalScoreDistribution[outcomes.scoreToBeat];
-  }
-}
-
 function renderBestFill() {
   var $box = $($boxes[outcomes.bestFillChoice]);
   $box.find(".fill-advisor").removeClass("d-none");
@@ -460,6 +483,12 @@ function renderAdvice() {
     }
   } else {
     renderBestFill();
+  }
+
+  if (outcomes.gameType === HIGH_SCORE && outcomes.bestPossibleScore == 0) {
+    $quitWarning.removeClass("d-none");
+  } else {
+    $quitWarning.addClass("d-none");
   }
 }
 
