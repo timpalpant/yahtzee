@@ -10,6 +10,9 @@ let TURN_HOLD1 = 1;
 let TURN_HOLD2 = 2;
 let TURN_FILL_BOX = 3;
 
+let EXPECTED_VALUE = "expected-value";
+let HIGH_SCORE = "high-score";
+
 let YAHTZEE_BONUS = 100;
 
 let DIE_SIDE_IMAGES = [
@@ -114,7 +117,7 @@ class GameState {
   }
 
   fill(box) {
-    if (isYahtzee(this.currentRoll) && this.yahtzeeBonusEligible()) {
+    if (isYahtzee(this.currentRoll) && this.yahtzeeBonusEligible) {
       console.log("Applying Yahtzee joker bonus");
       this.yahtzeeBonus += YAHTZEE_BONUS;
     }
@@ -166,10 +169,14 @@ class OutcomeCalculator {
   constructor(game, chart) {
     this.game = game;
     this.chart = chart;
+    this.gameType = EXPECTED_VALUE;
+    this.scoreToBeat = 0;
     this.initChart();
 
+    this.allOptions = null;
     this.currentTurn = null;
     this.currentTurnState = null;
+    this.expectedScore = 254;
   }
 
   get gameStateRequest() {
@@ -197,6 +204,11 @@ class OutcomeCalculator {
     this.chart.update();
   }
 
+  setGameType(gameType, scoreToBeat) {
+    this.gameType = gameType;
+    this.scoreToBeat = scoreToBeat;
+  }
+
   update(callback) {
     if (this.game.turnState == TURN_BEGIN) {
       // Can't update outcome distribution until roll.
@@ -206,7 +218,7 @@ class OutcomeCalculator {
 
     if (this.game.turn == this.currentTurn && this.game.turnState == this.currentTurnState) {
       // Data is already up-to-date.
-      this.setHoldChoice();
+      this.setCurrentChoice();
       callback();
       return;
     }
@@ -231,8 +243,7 @@ class OutcomeCalculator {
     this.allOptions = resp;
     this.currentTurn = this.game.turn;
     this.currentTurnState = this.game.turnState;
-
-    this.setHoldChoice();
+    this.setCurrentChoice();
   }
 
   get currentHoldChoice() {
@@ -245,14 +256,67 @@ class OutcomeCalculator {
     }
   }
 
+  setCurrentChoice() {
+    if (this.game.turnState < TURN_FILL_BOX) {
+      this.setHoldChoice();
+    } else {
+      this.setFillChoice(this.bestFillChoice);
+    }
+  }
+
   setHoldChoice() {
+    if (this.allOptions === null || this.allOptions.HoldChoices === null) {
+      return;  // No hold choices when fill must be played.
+    }
+
     let current = this.currentHoldChoice;
-    this.chart.data.datasets[0].data = current.FinalScoreDistribution;
+    this.chart.data.datasets[0].data = shiftDistribution(current.FinalScoreDistribution, this.game.grandTotal);
+    this.expectedScore = current.ExpectedFinalScore;
+  }
+
+  get bestHoldChoice() {
+    var bestChoice = null;
+    var bestScore = 0;
+    for (let choice of outcomes.allOptions.HoldChoices) {
+      let s = score(choice);
+      if (s >= bestScore) {
+        bestChoice = choice;
+        bestScore = s;
+      }
+    }
+
+    return bestChoice.HeldDice;
+  }
+
+  get bestFillChoice() {
+    var bestChoice = null;
+    var bestScore = 0;
+    for (let choice of this.allOptions.FillChoices) {
+      let s = score(choice);
+      if (s >= bestScore) {
+        bestChoice = choice;
+        bestScore = s;
+      }
+    }
+
+    return bestChoice.BoxFilled;
   }
 
   setFillChoice(box) {
-    let current = this.allOptions.FillChoices[box];
-    this.chart.data.datasets[0].data = current.FinalScoreDistribution;
+    if (this.allOptions === null || box === null || this.allOptions.FillChoices === null) {
+      return;
+    }
+
+    var current = null;
+    for (let choice of this.allOptions.FillChoices) {
+      if (choice.BoxFilled === box) {
+        current = choice;
+        break;
+      }
+    }
+
+    this.chart.data.datasets[0].data = shiftDistribution(current.FinalScoreDistribution, this.game.grandTotal);
+    this.expectedScore = current.ExpectedFinalScore;
   }
 }
 
@@ -276,17 +340,19 @@ var chart = new Chart(ctx, {
     }
   }
 });
-var game = new GameState();
-var outcomes = new OutcomeCalculator(game, chart);
+let game = new GameState();
+let outcomes = new OutcomeCalculator(game, chart);
 
 /*
  *  Rendering functions to render the current game state as display.
  */
 
-var $newGameBtn = $("#new-game-btn");
-var $rollBtn = $("#roll-btn");
-var $dice = $(".die");
-var $boxes = $(".box");
+let $newGameBtn = $("#new-game-btn");
+let $gameTypeSelector = $("#game-type-selector");
+let $highScoreInput = $("#high-score-input");
+let $rollBtn = $("#roll-btn");
+let $dice = $(".die");
+let $boxes = $(".box");
 
 function renderDice() {
   $dice.each(function(index) {
@@ -303,6 +369,12 @@ function renderDice() {
       $(this).find(".held-indicator").addClass("invisible");
     }
   });
+
+  if (game.turnState < TURN_FILL_BOX) {
+    $rollBtn.text("ROLL " + (game.turnState+1));
+  } else {
+    $rollBtn.text("FILL");
+  }
 
   var rollEnabled = (game.turn < NUM_TURNS && game.turnState < TURN_FILL_BOX);
   if (rollEnabled) {
@@ -346,15 +418,62 @@ function renderScoreTable() {
   $("#grand-total-score").text(game.grandTotal);
 }
 
-function renderAdvice() {
+function score(choice) {
+  if (outcomes.gameType === EXPECTED_VALUE) {
+    return choice.ExpectedFinalScore;
+  } else {
+    return choice.FinalScoreDistribution[outcomes.scoreToBeat];
+  }
+}
 
+function renderBestFill() {
+  var $box = $($boxes[outcomes.bestFillChoice]);
+  $box.find(".fill-advisor").removeClass("d-none");
+}
+
+function renderAdvice() {
+  $dice.find(".hold-advisor").addClass("invisible");
+  $boxes.find(".fill-advisor").addClass("d-none");
+
+  if (outcomes.allOptions === null || game.turnState == TURN_BEGIN) {
+    return;
+  }
+
+  if (game.turnState < TURN_FILL_BOX) {
+    let bestChoice = outcomes.bestHoldChoice;
+    if (bestChoice.length == NUM_DICE) {
+      // All dice held, best choice is a fill.
+      renderBestFill();
+    } else {
+      var held = bestChoice.slice();  // Copy
+      $dice.each(function(index) {
+        var die = game.dice[index];
+        var idx = held.indexOf(die.side);
+        if (idx > -1) {
+          held.splice(idx, 1);
+          $(this).find(".hold-advisor").removeClass("invisible");
+        } else {
+          $(this).find(".hold-advisor").addClass("invisible");
+        }
+      })
+    }
+  } else {
+    renderBestFill();
+  }
+}
+
+function renderOutcomes() {
+  var expectedScore = game.grandTotal + Math.round(outcomes.expectedScore);
+  $("#expected-score").text(expectedScore);
+
+  chart.update();
 }
 
 function render() {
   renderDice();
   renderScoreTable();
   renderAdvice();
-  chart.update();
+  renderOutcomes();
 }
 
 /*
@@ -364,6 +483,24 @@ function render() {
 
 // New game button.
 $newGameBtn.click(function() { location.reload() });
+
+function updateGameType() {
+  let gameType = $gameTypeSelector.val();
+  let scoreToBeat = $highScoreInput.val();
+  console.log("Changing game type to: " + gameType + " (score to beat: " + scoreToBeat + ")");
+  outcomes.setGameType(gameType, scoreToBeat);
+
+  if (gameType === HIGH_SCORE) {
+    $highScoreInput.removeClass("invisible");
+  } else {
+    $highScoreInput.addClass("invisible");
+  }
+
+  outcomes.update(render);
+}
+
+$gameTypeSelector.change(updateGameType);
+$highScoreInput.change(updateGameType);
 
 // Roll button.
 $rollBtn.click(function() {
@@ -443,4 +580,8 @@ function isYahtzee(roll) {
 function isArrayEqual(arr1, arr2) {
   return arr1.length === arr2.length &&
     arr1.every( function(this_i, i) { return this_i == arr2[i] } )
+}
+
+function shiftDistribution(arr, n) {
+  return Array(n).fill(1).concat(arr);
 }
