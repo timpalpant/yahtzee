@@ -8,7 +8,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/golang/glog"
 
-	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/optimization"
 	"github.com/timpalpant/yahtzee/server"
 )
 
@@ -23,14 +23,14 @@ func main() {
 	flag.Parse()
 
 	glog.Info("Loading expected scores table")
-	expectedScoreStrat := yahtzee.NewStrategy(yahtzee.NewExpectedValue())
+	expectedScoreStrat := optimization.NewStrategy(optimization.NewExpectedValue())
 	err := expectedScoreStrat.LoadCache(*expectedScores)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	glog.Info("Loading score distributions table")
-	highScoreStrat := yahtzee.NewStrategy(yahtzee.NewScoreDistribution())
+	highScoreStrat := optimization.NewStrategy(optimization.NewScoreDistribution())
 	err = highScoreStrat.LoadCache(*scoreDistributions)
 	if err != nil {
 		glog.Fatal(err)

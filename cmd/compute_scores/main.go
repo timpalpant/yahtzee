@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/optimization"
 )
 
 func main() {
@@ -21,17 +22,17 @@ func main() {
 	}()
 
 	glog.Info("Computing expected score table")
-	var obs yahtzee.GameResult
+	var obs optimization.GameResult
 	switch *observable {
 	case "expected_value":
-		obs = yahtzee.NewExpectedValue()
+		obs = optimization.NewExpectedValue()
 	case "score_distribution":
-		obs = yahtzee.NewScoreDistribution()
+		obs = optimization.NewScoreDistribution()
 	default:
 		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
 	}
 
-	s := yahtzee.NewStrategy(obs)
+	s := optimization.NewStrategy(obs)
 	result := s.Compute(yahtzee.NewGame())
 
 	glog.Infof("Expected score: %.2f", result)

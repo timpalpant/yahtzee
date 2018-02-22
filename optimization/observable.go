@@ -1,4 +1,4 @@
-package yahtzee
+package optimization
 
 import (
 	"encoding/gob"

@@ -1,4 +1,4 @@
-package yahtzee
+package cache
 
 import (
 	"compress/gzip"
@@ -11,28 +11,28 @@ import (
 // reusable by resetting the isSet array (which uses an efficient memset).
 // Values for which isSet[i] == false are not defined.
 type Cache struct {
-	values []GameResult
+	values []interface{}
 	isSet  []bool
 }
 
-func NewCache(size int) *Cache {
+func New(size int) *Cache {
 	return &Cache{
-		values: make([]GameResult, size),
+		values: make([]interface{}, size),
 		isSet:  make([]bool, size),
 	}
 }
 
-func New2DCache(size1, size2 int) []*Cache {
+func New2D(size1, size2 int) []*Cache {
 	result := make([]*Cache, size1)
 	for i := range result {
-		result[i] = NewCache(size2)
+		result[i] = New(size2)
 	}
 	return result
 }
 
 type cacheValue struct {
 	Key   uint
-	Value GameResult
+	Value interface{}
 }
 
 func (c *Cache) LoadFromFile(filename string) error {
@@ -95,7 +95,7 @@ func (c *Cache) Reset() {
 	}
 }
 
-func (c *Cache) Set(key uint, value GameResult) {
+func (c *Cache) Set(key uint, value interface{}) {
 	if c == nil {
 		return
 	}
@@ -104,7 +104,7 @@ func (c *Cache) Set(key uint, value GameResult) {
 	c.isSet[key] = true
 }
 
-func (c *Cache) Get(key uint) GameResult {
+func (c *Cache) Get(key uint) interface{} {
 	if c == nil {
 		return nil
 	}
