@@ -18,15 +18,13 @@ type GameResult interface {
 	Add(other GameResult, weight float64) GameResult
 	Max(other GameResult) GameResult
 	Shift(offset int) GameResult
-	IsOver(yahtzee.Game) bool
-	Value(yahtzee.Game) GameResult
 }
 
 // Strategy maximizes an observable GameResult through
 // retrograde analysis.
 type Strategy struct {
 	observable GameResult
-	results    map[yahtzee.Game]GameResult
+	results    map[yahtzee.GameState]GameResult
 
 	held1Caches []*cache.Cache
 	held2Caches []*cache.Cache
@@ -35,14 +33,14 @@ type Strategy struct {
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable:  observable,
-		results:     make(map[yahtzee.Game]GameResult, yahtzee.MaxGame),
+		results:     make(map[yahtzee.GameState]GameResult, yahtzee.MaxGame),
 		held1Caches: cache.New2D(yahtzee.NumTurns, yahtzee.MaxRoll),
 		held2Caches: cache.New2D(yahtzee.NumTurns, yahtzee.MaxRoll),
 	}
 }
 
 type GameValue struct {
-	Game  yahtzee.Game
+	Game  yahtzee.GameState
 	Value GameResult
 }
 
@@ -97,13 +95,13 @@ func (s *Strategy) SaveToFile(filename string) error {
 	return nil
 }
 
-func (s *Strategy) Compute(game yahtzee.Game) GameResult {
-	if result, ok := s.results[game]; ok {
-		return result
+func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
+	if game.GameOver() {
+		return s.observable.Copy()
 	}
 
-	if s.observable.IsOver(game) {
-		return s.observable.Value(game)
+	if result, ok := s.results[game]; ok {
+		return result
 	}
 
 	// We re-use pre-allocated caches to avoid repeated allocations
@@ -134,12 +132,12 @@ func (s *Strategy) Compute(game yahtzee.Game) GameResult {
 // is thread-safe as long as the caches are not shared.
 type TurnOptimizer struct {
 	strategy   *Strategy
-	game       yahtzee.Game
+	game       yahtzee.GameState
 	held1Cache *cache.Cache
 	held2Cache *cache.Cache
 }
 
-func NewTurnOptimizer(strategy *Strategy, game yahtzee.Game) *TurnOptimizer {
+func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer {
 	return &TurnOptimizer{
 		strategy:   strategy,
 		game:       game,

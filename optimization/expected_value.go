@@ -2,8 +2,6 @@ package optimization
 
 import (
 	"encoding/gob"
-
-	"github.com/timpalpant/yahtzee"
 )
 
 func init() {
@@ -16,14 +14,6 @@ type ExpectedValue float64
 
 func NewExpectedValue() ExpectedValue {
 	return ExpectedValue(0)
-}
-
-func (ev ExpectedValue) IsOver(game yahtzee.Game) bool {
-	return game.GameOver()
-}
-
-func (ev ExpectedValue) Value(game yahtzee.Game) GameResult {
-	return NewExpectedValue()
 }
 
 func (ev ExpectedValue) Copy() GameResult {

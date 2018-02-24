@@ -23,15 +23,6 @@ const (
 
 func init() {
 	gob.Register(GameState(0))
-	gob.Register(ScoredGameState{})
-}
-
-type Game interface {
-	Turn() int
-	TurnsRemaining() int
-	GameOver() bool
-	FillBox(box Box, roll Roll) (Game, int)
-	AvailableBoxes() []Box
 }
 
 // Each distinct game is represented by an integer as follows:
@@ -122,7 +113,7 @@ func (game GameState) SetBonusEligible() GameState {
 	return game | (1 << bonusBit)
 }
 
-func (game GameState) FillBox(box Box, roll Roll) (Game, int) {
+func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 	if game.BoxFilled(box) {
 		panic(fmt.Errorf("trying to play already filled box %v", box))
 	} else if roll.NumDice() != NDice {
@@ -183,27 +174,3 @@ const (
 	Hold2
 	FillBox
 )
-
-// ScoredGameState augments the Yahtzee game state with the current
-// total score of the game. This is necessary for strategies that
-// depend on the current score.
-type ScoredGameState struct {
-	GameState
-	TotalScore int
-}
-
-func NewScoredGameState() ScoredGameState {
-	return ScoredGameState{NewGame(), 0}
-}
-
-func (game ScoredGameState) FillBox(box Box, roll Roll) (Game, int) {
-	newGameState, addedScore := game.GameState.FillBox(box, roll)
-	newGame := ScoredGameState{newGameState.(GameState), game.TotalScore + addedScore}
-	return newGame, addedScore
-}
-
-func (game ScoredGameState) String() string {
-	return fmt.Sprintf("{ID: %d, Score: %d, Available: %v, BonusEligible: %v, UpperHalf: %v}",
-		uint(game.GameState), game.TotalScore, game.AvailableBoxes(),
-		game.BonusEligible(), game.UpperHalfScore())
-}

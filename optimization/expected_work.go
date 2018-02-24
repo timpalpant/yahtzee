@@ -2,8 +2,6 @@ package optimization
 
 import (
 	"encoding/gob"
-
-	"github.com/timpalpant/yahtzee"
 )
 
 func init() {
@@ -19,16 +17,6 @@ type ExpectedWork struct {
 
 func NewExpectedWork(scoreToBeat int, E0 float64) ExpectedWork {
 	return ExpectedWork{scoreToBeat, E0}
-}
-
-func (ew ExpectedWork) IsOver(game yahtzee.Game) bool {
-	scoredGame := game.(yahtzee.ScoredGameState)
-	return game.GameOver() || scoredGame.TotalScore > ew.scoreToBeat
-}
-
-func (ew ExpectedWork) Value(game yahtzee.Game) GameResult {
-	rollsRemaining := float64(3 * game.TurnsRemaining())
-	return ExpectedWork{ew.scoreToBeat, rollsRemaining}
 }
 
 func (ew ExpectedWork) Copy() GameResult {

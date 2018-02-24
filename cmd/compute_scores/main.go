@@ -15,6 +15,7 @@ func main() {
 	observable := flag.String("observable", "expected_value",
 		"Observable to compute (expected_value, score_distribution, expected_work)")
 	outputFilename := flag.String("output", "scores.gob.gz", "Output filename")
+	scoreToBeat := flag.Int("score_to_beat", 200, "Score to beat for expected work calculation")
 	flag.Parse()
 
 	go func() {
@@ -34,7 +35,7 @@ func main() {
 	case "score_distribution":
 		obs = optimization.NewScoreDistribution()
 	case "expected_work":
-		obs = optimization.NewExpectedWork(200, 10000)
+		obs = optimization.NewExpectedWork(*scoreToBeat, 10000)
 		game = yahtzee.NewScoredGameState()
 	default:
 		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")

@@ -3,8 +3,6 @@ package optimization
 import (
 	"encoding/gob"
 	"fmt"
-
-	"github.com/timpalpant/yahtzee"
 )
 
 func init() {
@@ -23,14 +21,6 @@ type ScoreDistribution struct {
 
 func NewScoreDistribution() ScoreDistribution {
 	return ScoreDistribution{}
-}
-
-func (sd ScoreDistribution) IsOver(game yahtzee.Game) bool {
-	return game.GameOver()
-}
-
-func (sd ScoreDistribution) Value(game yahtzee.Game) GameResult {
-	return NewScoreDistribution()
 }
 
 func (sd ScoreDistribution) Copy() GameResult {
