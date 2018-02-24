@@ -67,6 +67,9 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 
 	result := opt.GetOptimalTurnOutcome()
 	s.results.Set(uint(game), result)
+	if s.results.Count()%1000 == 0 {
+		glog.V(1).Infof("Computed results for %v games", s.results.Count())
+	}
 	return result
 }
 

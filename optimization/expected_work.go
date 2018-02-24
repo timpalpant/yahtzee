@@ -39,7 +39,15 @@ func (ew ExpectedWork) Copy() GameResult {
 }
 
 func (ew ExpectedWork) Zero() GameResult {
-	return ExpectedWork{E0: 1}
+	values := make([]float64, yahtzee.MaxScore)
+	for i := range values {
+		values[i] = 1
+	}
+
+	return ExpectedWork{
+		E0:     ew.E0,
+		Values: values,
+	}
 }
 
 func (ew ExpectedWork) Stop() int {
@@ -81,6 +89,12 @@ func (ew ExpectedWork) Max(gr GameResult) GameResult {
 		x1 := ew.GetValue(s)
 		x2 := other.GetValue(s)
 		newValues[s-newStart] = min(x1, x2)
+
+		// NOTE: Uses the fact that expected work is monotonic.
+		if newValues[s-newStart] >= ew.E0 {
+			newValues = newValues[:s-newStart]
+			break
+		}
 	}
 
 	return ExpectedWork{
@@ -110,6 +124,12 @@ func (ew ExpectedWork) Add(gr GameResult, weight float64) GameResult {
 	copy(newValues[ew.Start-newStart:], ew.Values)
 	for s := other.Start; s < yahtzee.MaxScore; s++ {
 		newValues[s-newStart] += weight * other.GetValue(s)
+
+		// NOTE: Uses the fact that expected work is monotonic.
+		if newValues[s-newStart] >= ew.E0 {
+			newValues = newValues[:s-newStart]
+			break
+		}
 	}
 
 	return ExpectedWork{

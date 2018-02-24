@@ -30,6 +30,16 @@ func New2DCache(size1, size2 int) []*Cache {
 	return result
 }
 
+func (c *Cache) Count() int {
+	n := 0
+	for _, isSet := range c.isSet {
+		if isSet {
+			n += 1
+		}
+	}
+	return n
+}
+
 func (c *Cache) Size() int {
 	return len(c.values)
 }
