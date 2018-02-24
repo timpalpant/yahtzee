@@ -1,19 +1,14 @@
 package optimization
 
 import (
-	"compress/gzip"
-	"encoding/gob"
-	"io"
-	"os"
-
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
-	"github.com/timpalpant/yahtzee/cache"
 )
 
 // GameResult is an observable to maximize.
 type GameResult interface {
+	Zero() GameResult
 	Copy() GameResult
 	Add(other GameResult, weight float64) GameResult
 	Max(other GameResult) GameResult
@@ -24,75 +19,27 @@ type GameResult interface {
 // retrograde analysis.
 type Strategy struct {
 	observable GameResult
-	results    map[yahtzee.GameState]GameResult
+	results    *Cache
 
-	held1Caches []*cache.Cache
-	held2Caches []*cache.Cache
+	held1Caches []*Cache
+	held2Caches []*Cache
 }
 
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable:  observable,
-		results:     make(map[yahtzee.GameState]GameResult, yahtzee.MaxGame),
-		held1Caches: cache.New2D(yahtzee.NumTurns, yahtzee.MaxRoll),
-		held2Caches: cache.New2D(yahtzee.NumTurns, yahtzee.MaxRoll),
+		results:     NewCache(yahtzee.MaxGame),
+		held1Caches: New2DCache(yahtzee.NumTurns, yahtzee.MaxRoll),
+		held2Caches: New2DCache(yahtzee.NumTurns, yahtzee.MaxRoll),
 	}
-}
-
-type GameValue struct {
-	Game  yahtzee.GameState
-	Value GameResult
 }
 
 func (s *Strategy) LoadCache(filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	gzf, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer gzf.Close()
-
-	dec := gob.NewDecoder(gzf)
-	for {
-		var result GameValue
-		if err := dec.Decode(&result); err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return err
-		}
-
-		s.results[result.Game] = result.Value
-	}
-
-	return nil
+	return s.results.LoadFromFile(filename)
 }
 
 func (s *Strategy) SaveToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	gzw := gzip.NewWriter(f)
-	defer gzw.Close()
-
-	enc := gob.NewEncoder(gzw)
-	for game, value := range s.results {
-		result := GameValue{game, value}
-		if err := enc.Encode(result); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return s.results.SaveToFile(filename)
 }
 
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
@@ -100,8 +47,8 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 		return s.observable.Copy()
 	}
 
-	if result, ok := s.results[game]; ok {
-		return result
+	if s.results.IsSet(uint(game)) {
+		return s.results.Get(uint(game))
 	}
 
 	// We re-use pre-allocated caches to avoid repeated allocations
@@ -119,11 +66,7 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 	}
 
 	result := opt.GetOptimalTurnOutcome()
-	s.results[game] = result
-	if len(s.results)%10000 == 0 {
-		glog.V(1).Infof("%v game states computed", len(s.results))
-	}
-
+	s.results.Set(uint(game), result)
 	return result
 }
 
@@ -133,22 +76,22 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 type TurnOptimizer struct {
 	strategy   *Strategy
 	game       yahtzee.GameState
-	held1Cache *cache.Cache
-	held2Cache *cache.Cache
+	held1Cache *Cache
+	held2Cache *Cache
 }
 
 func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer {
 	return &TurnOptimizer{
 		strategy:   strategy,
 		game:       game,
-		held1Cache: cache.New(yahtzee.MaxRoll),
-		held2Cache: cache.New(yahtzee.MaxRoll),
+		held1Cache: NewCache(yahtzee.MaxRoll),
+		held2Cache: NewCache(yahtzee.MaxRoll),
 	}
 }
 
 func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 	glog.V(2).Infof("Computing outcome for game %v", t.game)
-	result := t.strategy.observable.Copy()
+	result := t.strategy.observable.Zero()
 	for _, roll1 := range yahtzee.AllDistinctRolls() {
 		maxValue1 := t.GetBestHold1(roll1)
 		result = result.Add(maxValue1, roll1.Probability())
@@ -215,12 +158,12 @@ func (t *TurnOptimizer) GetFillOutcomes(roll yahtzee.Roll) map[yahtzee.Box]GameR
 	return result
 }
 
-func (t *TurnOptimizer) expectationOverRolls(cache *cache.Cache, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) GameResult) GameResult {
+func (t *TurnOptimizer) expectationOverRolls(cache *Cache, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) GameResult) GameResult {
 	if cache.IsSet(uint(held)) {
-		return cache.Get(uint(held)).(GameResult)
+		return cache.Get(uint(held))
 	}
 
-	eValue := t.strategy.observable.Copy()
+	eValue := t.strategy.observable.Zero()
 	if held.NumDice() == yahtzee.NDice {
 		eValue = rollValue(held)
 	} else {

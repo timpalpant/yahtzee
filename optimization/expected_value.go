@@ -20,6 +20,10 @@ func (ev ExpectedValue) Copy() GameResult {
 	return ev
 }
 
+func (ev ExpectedValue) Zero() GameResult {
+	return NewExpectedValue()
+}
+
 func (ev ExpectedValue) Add(other GameResult, weight float64) GameResult {
 	otherEV := other.(ExpectedValue)
 	return ev + ExpectedValue(weight)*otherEV
