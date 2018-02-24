@@ -24,7 +24,8 @@ var (
 	probabilities = computeAllProbabilities()
 )
 
-// Type Roll encodes a roll of five dice as the concatenation of 6 octal integers.
+// Type Roll encodes an unordered roll of five dice as the
+// concatenation of 6 octal integers.
 // Each 3 bits represent the number of ones, the number of twos, etc.
 type Roll uint
 
@@ -59,6 +60,10 @@ func NewRollFromDice(dice []int) Roll {
 	}
 
 	return r
+}
+
+func AllDistinctRolls() []Roll {
+	return rolls[0]
 }
 
 // Return a new Roll constructed by adding the given die to this one.

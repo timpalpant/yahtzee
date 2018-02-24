@@ -13,7 +13,7 @@ import (
 
 func main() {
 	observable := flag.String("observable", "expected_value",
-		"Observable to compute (expected_value or score_distribution)")
+		"Observable to compute (expected_value, score_distribution, expected_work)")
 	outputFilename := flag.String("output", "scores.gob.gz", "Output filename")
 	flag.Parse()
 
@@ -21,19 +21,27 @@ func main() {
 		glog.Info(http.ListenAndServe("localhost:6060", nil))
 	}()
 
+	glog.Infof("Max game is: %v", yahtzee.MaxGame)
+	glog.Infof("Max roll is: %v", yahtzee.MaxRoll)
+	glog.Infof("Max score is: %v", yahtzee.MaxScore)
+
 	glog.Info("Computing expected score table")
+	var game yahtzee.Game = yahtzee.NewGame()
 	var obs optimization.GameResult
 	switch *observable {
 	case "expected_value":
 		obs = optimization.NewExpectedValue()
 	case "score_distribution":
 		obs = optimization.NewScoreDistribution()
+	case "expected_work":
+		obs = optimization.NewExpectedWork(200, 10000)
+		game = yahtzee.NewScoredGameState()
 	default:
 		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
 	}
 
 	s := optimization.NewStrategy(obs)
-	result := s.Compute(yahtzee.NewGame())
+	result := s.Compute(game)
 
 	glog.Infof("Expected score: %.2f", result)
 	glog.Infof("Writing score table to: %v", *outputFilename)
