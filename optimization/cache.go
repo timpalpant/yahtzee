@@ -15,6 +15,7 @@ type Cache struct {
 	mu     sync.Mutex
 	values []GameResult
 	isSet  []bool
+	nSet   int
 }
 
 func NewCache(size int) *Cache {
@@ -35,14 +36,7 @@ func New2DCache(size1, size2 int) []*Cache {
 func (c *Cache) Count() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	n := 0
-	for _, isSet := range c.isSet {
-		if isSet {
-			n += 1
-		}
-	}
-	return n
+	return c.nSet
 }
 
 func (c *Cache) Size() int {
@@ -57,6 +51,7 @@ func (c *Cache) Reset() {
 	for i := range c.isSet {
 		c.isSet[i] = false
 	}
+	c.nSet = 0
 }
 
 func (c *Cache) Set(key uint, value GameResult) {

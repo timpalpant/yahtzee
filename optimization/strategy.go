@@ -74,12 +74,8 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 	}
 
 	s.cond.L.Lock()
-	if s.resultsPending[game] {
-		s.queue.Remove(game)
-	} else {
-		s.resultsPending[game] = true
-	}
-
+	s.queue.Remove(game)
+	s.resultsPending[game] = true
 	s.cond.L.Unlock()
 
 	return s.computeGame(game)
@@ -109,6 +105,9 @@ func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
 	}
 
 	s.results.Set(uint(game), result)
+	if s.results.Count()%10000 == 0 {
+		glog.V(1).Infof("Computed %v game results", s.results.Count())
+	}
 	s.cond.Broadcast()
 	return result
 }
