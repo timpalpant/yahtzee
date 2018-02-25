@@ -28,8 +28,11 @@ func NewExpectedWork(e0 float64) ExpectedWork {
 }
 
 func (ew ExpectedWork) Copy() GameResult {
-	vCopy := make([]float64, len(ew.Values))
-	copy(vCopy, ew.Values)
+	var vCopy []float64
+	if len(ew.Values) > 0 {
+		vCopy = make([]float64, len(ew.Values))
+		copy(vCopy, ew.Values)
+	}
 
 	return ExpectedWork{
 		E0:     ew.E0,
