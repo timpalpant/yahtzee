@@ -39,9 +39,10 @@ func main() {
 		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
 	}
 
-	s := optimization.NewStrategy(obs)
+	var s *optimization.Strategy
 	if *resume != "" {
 		glog.Infof("Resuming training, loading cache from %v", *resume)
+		s = optimization.NewStrategy(obs)
 		s.LoadCache(*resume)
 		obs = s.Compute(yahtzee.NewGame())
 	}
@@ -49,7 +50,7 @@ func main() {
 	glog.Info("Computing expected score table")
 	for i := 0; i < *iter; i++ {
 		s = optimization.NewStrategy(obs)
-		obs = s.Compute(yahtzee.NewGame())
+		obs = s.Populate()
 		glog.Infof("Expected score after iteration %v: %.2f", i, obs)
 
 		glog.Infof("Writing score table to: %v", *outputFilename)
