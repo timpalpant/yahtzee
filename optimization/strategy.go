@@ -1,6 +1,8 @@
 package optimization
 
 import (
+	"sync"
+
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
@@ -20,17 +22,12 @@ type GameResult interface {
 type Strategy struct {
 	observable GameResult
 	results    *Cache
-
-	held1Caches []*Cache
-	held2Caches []*Cache
 }
 
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
-		observable:  observable,
-		results:     NewCache(yahtzee.MaxGame),
-		held1Caches: New2DCache(yahtzee.NumTurns, yahtzee.MaxRoll),
-		held2Caches: New2DCache(yahtzee.NumTurns, yahtzee.MaxRoll),
+		observable: observable,
+		results:    NewCache(yahtzee.MaxGame),
 	}
 }
 
@@ -51,20 +48,7 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 		return s.results.Get(uint(game))
 	}
 
-	// We re-use pre-allocated caches to avoid repeated allocations
-	// during strategy table computation.
-	h1Cache := s.held1Caches[game.Turn()]
-	h1Cache.Reset()
-	h2Cache := s.held2Caches[game.Turn()]
-	h2Cache.Reset()
-
-	opt := TurnOptimizer{
-		strategy:   s,
-		game:       game,
-		held1Cache: h1Cache,
-		held2Cache: h2Cache,
-	}
-
+	opt := NewTurnOptimizer(s, game)
 	result := opt.GetOptimalTurnOutcome()
 	s.results.Set(uint(game), result)
 	if s.results.Count()%1000 == 0 {
@@ -73,22 +57,24 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 	return result
 }
 
+var cachePool = sync.Pool{
+	New: func() interface{} {
+		return NewCache(yahtzee.MaxRoll)
+	},
+}
+
 // TurnOptimizer computes optimal choices for a single turn.
 // Once the strategy results table is fully populated, TurnOptimizer
 // is thread-safe as long as the caches are not shared.
 type TurnOptimizer struct {
-	strategy   *Strategy
-	game       yahtzee.GameState
-	held1Cache *Cache
-	held2Cache *Cache
+	strategy *Strategy
+	game     yahtzee.GameState
 }
 
 func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer {
 	return &TurnOptimizer{
-		strategy:   strategy,
-		game:       game,
-		held1Cache: NewCache(yahtzee.MaxRoll),
-		held2Cache: NewCache(yahtzee.MaxRoll),
+		strategy: strategy,
+		game:     game,
 	}
 }
 
@@ -105,32 +91,48 @@ func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 }
 
 func (t *TurnOptimizer) GetBestHold1(roll1 yahtzee.Roll) GameResult {
+	cache := cachePool.Get().(*Cache)
+	cache.Reset()
+	defer cachePool.Put(cache)
+
 	return t.maxOverHolds(roll1, func(held1 yahtzee.Roll) GameResult {
-		return t.expectationOverRolls(t.held1Cache, held1, t.GetBestHold2)
+		return t.expectationOverRolls(cache, held1, t.GetBestHold2)
 	})
 }
 
 func (t *TurnOptimizer) GetHold1Outcomes(roll1 yahtzee.Roll) map[yahtzee.Roll]GameResult {
+	cache := cachePool.Get().(*Cache)
+	cache.Reset()
+	defer cachePool.Put(cache)
+
 	possibleHolds := roll1.PossibleHolds()
 	result := make(map[yahtzee.Roll]GameResult, len(possibleHolds))
 	for _, held1 := range possibleHolds {
-		result[held1] = t.expectationOverRolls(t.held1Cache, held1, t.GetBestHold2)
+		result[held1] = t.expectationOverRolls(cache, held1, t.GetBestHold2)
 	}
 
 	return result
 }
 
 func (t *TurnOptimizer) GetBestHold2(roll2 yahtzee.Roll) GameResult {
+	cache := cachePool.Get().(*Cache)
+	cache.Reset()
+	defer cachePool.Put(cache)
+
 	return t.maxOverHolds(roll2, func(held2 yahtzee.Roll) GameResult {
-		return t.expectationOverRolls(t.held2Cache, held2, t.GetBestFill)
+		return t.expectationOverRolls(cache, held2, t.GetBestFill)
 	})
 }
 
 func (t *TurnOptimizer) GetHold2Outcomes(roll2 yahtzee.Roll) map[yahtzee.Roll]GameResult {
+	cache := cachePool.Get().(*Cache)
+	cache.Reset()
+	defer cachePool.Put(cache)
+
 	possibleHolds := roll2.PossibleHolds()
 	result := make(map[yahtzee.Roll]GameResult, len(possibleHolds))
 	for _, held2 := range possibleHolds {
-		result[held2] = t.expectationOverRolls(t.held2Cache, held2, t.GetBestFill)
+		result[held2] = t.expectationOverRolls(cache, held2, t.GetBestFill)
 	}
 
 	return result
