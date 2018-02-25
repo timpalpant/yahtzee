@@ -1,7 +1,6 @@
 package yahtzee
 
 import (
-	"encoding/gob"
 	"fmt"
 )
 
@@ -20,10 +19,6 @@ const (
 	shiftUHS  uint = bonusBit + 1
 	boxesMask      = (1 << bonusBit) - 1
 )
-
-func init() {
-	gob.Register(GameState(0))
-}
 
 // Each distinct game is represented by an integer as follows:
 //

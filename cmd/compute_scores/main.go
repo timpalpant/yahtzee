@@ -16,6 +16,7 @@ func main() {
 		"Observable to compute (expected_value, score_distribution, expected_work)")
 	outputFilename := flag.String("output", "scores.gob.gz", "Output filename")
 	iter := flag.Int("iter", 1, "Number of iterations to perform")
+	resume := flag.String("resume", "", "Resume calculation from given output")
 	flag.Parse()
 
 	go func() {
@@ -38,17 +39,23 @@ func main() {
 		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
 	}
 
+	s := optimization.NewStrategy(obs)
+	if *resume != "" {
+		glog.Infof("Resuming training, loading cache from %v", *resume)
+		s.LoadCache(*resume)
+		obs = s.Compute(yahtzee.NewGame())
+	}
+
 	glog.Info("Computing expected score table")
-	var s *optimization.Strategy
 	for i := 0; i < *iter; i++ {
 		s = optimization.NewStrategy(obs)
 		obs = s.Compute(yahtzee.NewGame())
 		glog.Infof("Expected score after iteration %v: %.2f", i, obs)
-	}
 
-	glog.Infof("Writing score table to: %v", *outputFilename)
-	err := s.SaveToFile(*outputFilename)
-	if err != nil {
-		glog.Fatal(err)
+		glog.Infof("Writing score table to: %v", *outputFilename)
+		err := s.SaveToFile(*outputFilename)
+		if err != nil {
+			glog.Fatal(err)
+		}
 	}
 }

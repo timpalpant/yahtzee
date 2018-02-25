@@ -76,8 +76,8 @@ func (c *Cache) IsSet(key uint) bool {
 }
 
 type cacheValue struct {
-	key   uint
-	value GameResult
+	Key   uint
+	Value GameResult
 }
 
 func (c *Cache) LoadFromFile(filename string) error {
@@ -104,7 +104,7 @@ func (c *Cache) LoadFromFile(filename string) error {
 			return err
 		}
 
-		c.Set(result.key, result.value)
+		c.Set(result.Key, result.Value)
 	}
 
 	return nil
