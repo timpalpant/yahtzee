@@ -5,12 +5,14 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
+	"sync"
 )
 
 // Cache memoizes computed values. It is designed to be efficiently
 // reusable by resetting the isSet array (which uses an efficient memset).
 // Values for which isSet[i] == false are not defined.
 type Cache struct {
+	mu     sync.Mutex
 	values []GameResult
 	isSet  []bool
 }
@@ -31,6 +33,9 @@ func New2DCache(size1, size2 int) []*Cache {
 }
 
 func (c *Cache) Count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	n := 0
 	for _, isSet := range c.isSet {
 		if isSet {
@@ -41,10 +46,14 @@ func (c *Cache) Count() int {
 }
 
 func (c *Cache) Size() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return len(c.values)
 }
 
 func (c *Cache) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for i := range c.isSet {
 		c.isSet[i] = false
 	}
@@ -55,6 +64,8 @@ func (c *Cache) Set(key uint, value GameResult) {
 		return
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.values[key] = value
 	c.isSet[key] = true
 }
@@ -64,7 +75,13 @@ func (c *Cache) Get(key uint) GameResult {
 		return nil
 	}
 
-	return c.values[key]
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.isSet[key] {
+		return c.values[key]
+	}
+
+	return nil
 }
 
 func (c *Cache) IsSet(key uint) bool {
@@ -72,6 +89,8 @@ func (c *Cache) IsSet(key uint) bool {
 		return false
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.isSet[key]
 }
 
