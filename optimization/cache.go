@@ -63,6 +63,7 @@ func (c *Cache) Set(key uint, value GameResult) {
 	defer c.mu.Unlock()
 	c.values[key] = value
 	c.isSet[key] = true
+	c.nSet++
 }
 
 func (c *Cache) Get(key uint) GameResult {

@@ -42,6 +42,12 @@ func NewStrategy(observable GameResult) *Strategy {
 		go s.computeWorker(i)
 	}
 
+	for game := yahtzee.NewGame(); game <= yahtzee.MaxGame; game++ {
+		if game.GameOver() {
+			s.results.Set(uint(game), observable.Copy())
+		}
+	}
+
 	return s
 }
 
