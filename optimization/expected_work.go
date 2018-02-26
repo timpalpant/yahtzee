@@ -3,11 +3,18 @@ package optimization
 import (
 	"encoding/gob"
 	"fmt"
+	"sync"
 
 	"gonum.org/v1/gonum/floats"
 
 	"github.com/timpalpant/yahtzee"
 )
+
+var pool = sync.Pool{
+	New: func() interface{} {
+		return make([]float64, yahtzee.MaxScore)
+	},
+}
 
 func init() {
 	gob.Register(ExpectedWork{})
@@ -30,8 +37,12 @@ func NewExpectedWork(e0 float64) ExpectedWork {
 	}
 }
 
+func (ew ExpectedWork) Close() {
+	pool.Put(ew.Values)
+}
+
 func (ew ExpectedWork) Copy() GameResult {
-	values := make([]float64, len(ew.Values))
+	values := pool.Get().([]float64)
 	for i := range values {
 		values[i] = ew.E0
 	}
@@ -43,7 +54,7 @@ func (ew ExpectedWork) Copy() GameResult {
 }
 
 func (ew ExpectedWork) Zero() GameResult {
-	values := make([]float64, len(ew.Values))
+	values := pool.Get().([]float64)
 	for i := range values {
 		values[i] = 1
 	}
@@ -88,7 +99,10 @@ func (ew ExpectedWork) Add(gr GameResult, weight float64) GameResult {
 }
 
 func (ew ExpectedWork) Shift(offset int) GameResult {
-	newValues := make([]float64, len(ew.Values))
+	newValues := pool.Get().([]float64)
+	for i := 0; i < offset; i++ {
+		newValues[i] = 0
+	}
 	copy(newValues[offset:], ew.Values)
 	ew.Values = newValues
 	return ew

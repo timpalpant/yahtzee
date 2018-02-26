@@ -12,6 +12,7 @@ import (
 
 // GameResult is an observable to maximize.
 type GameResult interface {
+	Close()
 	Zero() GameResult
 	Copy() GameResult
 	Add(other GameResult, weight float64) GameResult
@@ -212,6 +213,7 @@ func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 	for _, roll1 := range yahtzee.AllDistinctRolls() {
 		maxValue1 := t.GetBestHold1(roll1)
 		result = result.Add(maxValue1, roll1.Probability())
+		maxValue1.Close()
 	}
 
 	glog.V(2).Infof("Outcome for game %v = %v", t.game, result)
@@ -265,6 +267,7 @@ func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
 			expectedRemainingScore := t.strategy.Compute(newGame)
 			expectedPositionValue := expectedRemainingScore.Shift(addedValue)
 			best = best.Max(expectedPositionValue)
+			expectedPositionValue.Close()
 		}
 		return best
 	}
@@ -289,6 +292,7 @@ func (t *TurnOptimizer) getBestFillParallel(roll yahtzee.Roll) GameResult {
 		expectedRemainingScore := subGameResults[i]
 		expectedPositionValue := expectedRemainingScore.Shift(boxResult.addedValue)
 		best = best.Max(expectedPositionValue)
+		expectedPositionValue.Close()
 	}
 
 	return best
@@ -312,10 +316,11 @@ func (t *TurnOptimizer) expectationOverRolls(cache *Cache, held yahtzee.Roll, ro
 		return result
 	}
 
-	eValue := t.strategy.observable.Zero()
+	var eValue GameResult
 	if held.NumDice() == yahtzee.NDice {
 		eValue = rollValue(held)
 	} else {
+		eValue = t.strategy.observable.Zero()
 		for side := 1; side <= yahtzee.NSides; side++ {
 			value := t.expectationOverRolls(cache, held.Add(side), rollValue)
 			eValue = eValue.Add(value, 1.0/yahtzee.NSides)

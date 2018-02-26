@@ -23,6 +23,8 @@ func NewScoreDistribution() ScoreDistribution {
 	return ScoreDistribution{}
 }
 
+func (sd ScoreDistribution) Close() {}
+
 func (sd ScoreDistribution) Copy() GameResult {
 	pCopy := make([]float64, len(sd.Probabilities))
 	copy(pCopy, sd.Probabilities)

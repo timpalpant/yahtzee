@@ -16,6 +16,8 @@ func NewExpectedValue() ExpectedValue {
 	return ExpectedValue(0)
 }
 
+func (ev ExpectedValue) Close() {}
+
 func (ev ExpectedValue) Copy() GameResult {
 	return ev
 }
