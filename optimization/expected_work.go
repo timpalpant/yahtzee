@@ -3,16 +3,9 @@ package optimization
 import (
 	"encoding/gob"
 	"fmt"
-	"sync"
 
 	"github.com/timpalpant/yahtzee"
 )
-
-var valuesPool = sync.Pool{
-	New: func() interface{} {
-		return make([]float64, yahtzee.MaxScore)
-	},
-}
 
 func init() {
 	gob.Register(ExpectedWork{})
@@ -29,11 +22,14 @@ type ExpectedWork struct {
 }
 
 func NewExpectedWork(e0 float64) ExpectedWork {
-	return ExpectedWork{E0: e0}
+	return ExpectedWork{
+		E0:     e0,
+		Values: make([]float64, yahtzee.MaxScore),
+	}
 }
 
 func (ew ExpectedWork) Copy() GameResult {
-	values := valuesPool.Get().([]float64)
+	values := make([]float64, len(ew.Values))
 	for i := range values {
 		values[i] = ew.E0
 	}
@@ -45,7 +41,7 @@ func (ew ExpectedWork) Copy() GameResult {
 }
 
 func (ew ExpectedWork) Zero() GameResult {
-	values := valuesPool.Get().([]float64)
+	values := make([]float64, len(ew.Values))
 	for i := range values {
 		values[i] = 1
 	}
@@ -68,19 +64,10 @@ func clear(v []float64) {
 
 func (ew ExpectedWork) Max(gr GameResult) GameResult {
 	other := gr.(ExpectedWork)
-	newValues := valuesPool.Get().([]float64)
-	clear(newValues)
-	for s := 0; s < len(newValues); s++ {
-		x1 := ew.Values[s]
-		x2 := other.Values[s]
-		newValues[s] = min(x1, x2)
+	for s := 0; s < len(ew.Values); s++ {
+		ew.Values[s] = min(ew.Values[s], other.Values[s])
 	}
 
-	if len(ew.Values) == yahtzee.MaxScore {
-		valuesPool.Put(ew.Values)
-	}
-
-	ew.Values = newValues
 	return ew
 }
 
@@ -94,28 +81,16 @@ func min(x1, x2 float64) float64 {
 
 func (ew ExpectedWork) Add(gr GameResult, weight float64) GameResult {
 	other := gr.(ExpectedWork)
-	newValues := valuesPool.Get().([]float64)
-	copy(newValues, ew.Values)
-	for s := 0; s < len(newValues); s++ {
-		newValues[s] += weight * other.Values[s]
+	for s := 0; s < len(ew.Values); s++ {
+		ew.Values[s] += weight * other.Values[s]
 	}
 
-	valuesPool.Put(ew.Values)
-	ew.Values = newValues
 	return ew
 }
 
 func (ew ExpectedWork) Shift(offset int) GameResult {
-	newValues := valuesPool.Get().([]float64)
-	for i := 0; i < offset; i++ {
-		newValues[i] = 0
-	}
-
-	for s := offset; s < len(newValues); s++ {
-		newValues[s] = ew.Values[s-offset]
-	}
-
-	valuesPool.Put(ew.Values)
+	newValues := make([]float64, len(ew.Values))
+	copy(newValues[offset:], ew.Values)
 	ew.Values = newValues
 	return ew
 }
