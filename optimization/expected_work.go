@@ -4,6 +4,8 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"gonum.org/v1/gonum/floats"
+
 	"github.com/timpalpant/yahtzee"
 )
 
@@ -81,10 +83,7 @@ func min(x1, x2 float64) float64 {
 
 func (ew ExpectedWork) Add(gr GameResult, weight float64) GameResult {
 	other := gr.(ExpectedWork)
-	for s := 0; s < len(ew.Values); s++ {
-		ew.Values[s] += weight * other.Values[s]
-	}
-
+	floats.AddScaled(ew.Values, weight, other.Values)
 	return ew
 }
 
