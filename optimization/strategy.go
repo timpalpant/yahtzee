@@ -75,8 +75,8 @@ func (s *Strategy) Populate() GameResult {
 // Compute calculates the value of the given GameState for
 // the observable that is maximized by this Strategy.
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
-	if s.results.IsSet(uint(game)) {
-		return s.results.Get(uint(game))
+	if result, ok := s.results.GetIfSet(uint(game)); ok {
+		return result
 	}
 
 	s.cond.L.Lock()
@@ -123,9 +123,9 @@ func (s *Strategy) computeUntilReady(game yahtzee.GameState) GameResult {
 		s.cond.L.Lock()
 		for s.queue.Len() == 0 {
 			s.cond.Wait()
-			if s.results.IsSet(uint(game)) {
+			if result, ok := s.results.GetIfSet(uint(game)); ok {
 				s.cond.L.Unlock()
-				return s.results.Get(uint(game))
+				return result
 			}
 		}
 
@@ -308,8 +308,8 @@ func (t *TurnOptimizer) GetFillOutcomes(roll yahtzee.Roll) map[yahtzee.Box]GameR
 }
 
 func (t *TurnOptimizer) expectationOverRolls(cache *Cache, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) GameResult) GameResult {
-	if cache.IsSet(uint(held)) {
-		return cache.Get(uint(held))
+	if result, ok := cache.GetIfSet(uint(held)); ok {
+		return result
 	}
 
 	eValue := t.strategy.observable.Zero()

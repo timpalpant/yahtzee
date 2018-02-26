@@ -12,7 +12,7 @@ import (
 // reusable by resetting the isSet array (which uses an efficient memset).
 // Values for which isSet[i] == false are not defined.
 type Cache struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	values []GameResult
 	isSet  []bool
 	nSet   int
@@ -34,14 +34,14 @@ func New2DCache(size1, size2 int) []*Cache {
 }
 
 func (c *Cache) Count() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.nSet
 }
 
 func (c *Cache) Size() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return len(c.values)
 }
 
@@ -71,8 +71,8 @@ func (c *Cache) Get(key uint) GameResult {
 		return nil
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.isSet[key] {
 		return c.values[key]
 	}
@@ -80,13 +80,27 @@ func (c *Cache) Get(key uint) GameResult {
 	return nil
 }
 
+func (c *Cache) GetIfSet(key uint) (GameResult, bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.isSet[key] {
+		return c.values[key], true
+	}
+
+	return nil, false
+}
+
 func (c *Cache) IsSet(key uint) bool {
 	if c == nil {
 		return false
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.isSet[key]
 }
 
