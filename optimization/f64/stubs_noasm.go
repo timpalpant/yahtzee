@@ -19,3 +19,17 @@ func Max(dst, s []float64) {
 		}
 	}
 }
+
+// Min is
+//  for i, v := range s {
+//      if v < dst[i] {
+//          dst[i] = v
+//      }
+//  }
+func Min(dst, s []float64) {
+	for i, x := range s {
+		if x < dst[i] {
+			dst[i] = x
+		}
+	}
+}
