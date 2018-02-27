@@ -1,8 +1,8 @@
 package optimization
 
 import (
-	"container/heap"
 	"runtime"
+	"sort"
 	"sync"
 
 	"github.com/golang/glog"
@@ -20,36 +20,31 @@ type GameResult interface {
 	Shift(offset int) GameResult
 }
 
+type Status int
+
+const (
+	NotStarted Status = iota
+	InProgress
+	Done
+)
+
 // Strategy maximizes an observable GameResult through
 // retrograde analysis.
 type Strategy struct {
-	observable     GameResult
-	results        *Cache
-	resultsPending []bool
-	queue          *GameHeap
-	cond           *sync.Cond
+	observable GameResult
+	results    *Cache
+	status     []Status
+	queue      []yahtzee.GameState
+	cond       *sync.Cond
 }
 
 func NewStrategy(observable GameResult) *Strategy {
-	s := &Strategy{
-		observable:     observable,
-		results:        NewCache(yahtzee.MaxGame),
-		resultsPending: make([]bool, yahtzee.MaxGame),
-		queue:          NewGameHeap(),
-		cond:           sync.NewCond(&sync.Mutex{}),
+	return &Strategy{
+		observable: observable,
+		results:    NewCache(yahtzee.MaxGame),
+		status:     make([]Status, yahtzee.MaxGame),
+		cond:       sync.NewCond(&sync.Mutex{}),
 	}
-
-	for i := 0; i < runtime.NumCPU(); i++ {
-		go s.computeWorker(i)
-	}
-
-	for game := yahtzee.NewGame(); game <= yahtzee.MaxGame; game++ {
-		if game.GameOver() {
-			s.results.Set(uint(game), observable.Copy())
-		}
-	}
-
-	return s
 }
 
 // LoadCache loads the results table for this strategy from the
@@ -65,102 +60,94 @@ func (s *Strategy) SaveToFile(filename string) error {
 }
 
 func (s *Strategy) Populate() GameResult {
-	game := yahtzee.NewGame()
-	opt := NewTurnOptimizer(s, game, true)
-	defer opt.Close()
-	result := opt.GetOptimalTurnOutcome()
-	s.results.Set(uint(game), result)
-	return result
+	s.initQueue()
+	glog.Infof("%v games in queue", len(s.queue))
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+		go func(i int) {
+			s.computeWorker(i)
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
+	return s.Compute(yahtzee.NewGame())
+}
+
+func (s *Strategy) initQueue() {
+	// Figure out the games we need to compute.
+	s.queue = make([]yahtzee.GameState, 0, yahtzee.MaxGame)
+	for game := yahtzee.NewGame(); game <= yahtzee.MaxGame; game++ {
+		if game.IsValid() {
+			s.queue = append(s.queue, game)
+		}
+	}
+
+	// Sort games to compute by number of turns remaining.
+	// i.e. Start at the end games and then proceed to earlier ones.
+	sort.Slice(s.queue, func(i, j int) bool {
+		return s.queue[i].TurnsRemaining() < s.queue[j].TurnsRemaining()
+	})
 }
 
 // Compute calculates the value of the given GameState for
 // the observable that is maximized by this Strategy.
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
+	if game.GameOver() {
+		return s.observable
+	}
+
 	if result, ok := s.results.GetIfSet(uint(game)); ok {
 		return result
 	}
 
 	s.cond.L.Lock()
-	s.queue.Remove(game)
-	s.resultsPending[game] = true
-	s.cond.L.Unlock()
-
-	return s.computeGame(game)
-}
-
-func (s *Strategy) enqueueAsync(game yahtzee.GameState) {
-	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
-
-	// Enqueue computation for this game if it isn't already in progress.
-	if !s.resultsPending[game] {
-		s.resultsPending[game] = true
-		heap.Push(s.queue, game)
-		s.cond.Signal()
-	}
-}
-
-func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
-	var result GameResult
-	if game.GameOver() {
-		// Optimization to avoid allocation of terminal state games.
-		result = s.observable.Copy()
-	} else {
-		opt := NewTurnOptimizer(s, game, false)
-		defer opt.Close()
-		result = opt.GetOptimalTurnOutcome()
-	}
-
-	s.results.Set(uint(game), result)
-	if s.results.Count()%10000 == 0 {
-		glog.V(1).Infof("Computed %v game results", s.results.Count())
-	}
-	s.cond.Broadcast()
-	return result
-}
-
-func (s *Strategy) computeUntilReady(game yahtzee.GameState) GameResult {
-	for !s.results.IsSet(uint(game)) {
-		s.cond.L.Lock()
-		for s.queue.Len() == 0 {
-			s.cond.Wait()
-			if result, ok := s.results.GetIfSet(uint(game)); ok {
-				s.cond.L.Unlock()
-				return result
-			}
-		}
-
-		other := heap.Pop(s.queue).(yahtzee.GameState)
+	switch s.status[game] {
+	case NotStarted:
+		s.status[game] = InProgress
 		s.cond.L.Unlock()
-
-		s.computeGame(other)
+		return s.computeGame(game)
+	case InProgress:
+		for s.status[game] != Done {
+			s.cond.Wait()
+		}
 	}
 
+	s.cond.L.Unlock()
 	return s.results.Get(uint(game))
 }
 
 func (s *Strategy) computeWorker(i int) {
 	glog.V(1).Infof("Compute worker %v starting", i)
 	defer glog.V(1).Infof("Compute worker %v shutting down", i)
-	s.computeUntilReady(yahtzee.NewGame())
+	s.cond.L.Lock()
+	defer s.cond.L.Unlock()
+	for len(s.queue) > 0 {
+		next := s.queue[0]
+		s.queue = s.queue[1:]
+		if s.status[next] == NotStarted {
+			s.status[next] = InProgress
+			s.cond.L.Unlock()
+			s.computeGame(next)
+			s.cond.L.Lock()
+		}
+	}
 }
 
-// ComputeAll runs Compute for each GameState in the given slice,
-// and returns the results for each. Each element of the returned slice
-// corresponds to the same element i in the input.
-//
-// The advantage of ComputeAll is that the calculatations may be performed
-// in parallel, reducing the total time to calculate all results.
-func (s *Strategy) ComputeAll(games []yahtzee.GameState) []GameResult {
-	for _, game := range games {
-		s.enqueueAsync(game)
+func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
+	opt := NewTurnOptimizer(s, game)
+	defer opt.Close()
+	result := opt.GetOptimalTurnOutcome()
+	s.results.Set(uint(game), result)
+	if s.results.Count()%10000 == 0 {
+		glog.V(1).Infof("Computed %v games", s.results.Count())
 	}
 
-	result := make([]GameResult, len(games))
-	for i, game := range games {
-		result[i] = s.computeUntilReady(game)
-	}
-
+	// Wake up anybody waiting for this game to be Done.
+	s.status[game] = Done
+	s.cond.Broadcast()
 	return result
 }
 
@@ -180,10 +167,9 @@ type TurnOptimizer struct {
 	game       yahtzee.GameState
 	held1Cache *Cache
 	held2Cache *Cache
-	parallel   bool
 }
 
-func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState, parallel bool) *TurnOptimizer {
+func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer {
 	held1Cache := cachePool.Get().(*Cache)
 	held1Cache.Reset()
 	held2Cache := cachePool.Get().(*Cache)
@@ -194,7 +180,6 @@ func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState, parallel bool)
 		game:       game,
 		held1Cache: held1Cache,
 		held2Cache: held2Cache,
-		parallel:   parallel,
 	}
 }
 
@@ -204,11 +189,7 @@ func (t *TurnOptimizer) Close() {
 }
 
 func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
-	if t.game.GameOver() {
-		return t.strategy.observable.Copy()
-	}
-
-	glog.V(2).Infof("Computing outcome for game %v", t.game)
+	glog.V(3).Infof("Computing outcome for game %v", t.game)
 	result := t.strategy.observable.Zero()
 	for _, roll1 := range yahtzee.AllDistinctRolls() {
 		maxValue1 := t.GetBestHold1(roll1)
@@ -216,7 +197,7 @@ func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 		maxValue1.Close()
 	}
 
-	glog.V(2).Infof("Outcome for game %v = %v", t.game, result)
+	glog.V(3).Infof("Outcome for game %v = %v", t.game, result)
 	return result
 }
 
@@ -258,43 +239,14 @@ type boxResult struct {
 }
 
 func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
-	if t.parallel {
-		return t.getBestFillParallel(roll)
-	} else {
-		best := t.strategy.observable.Copy()
-		for _, box := range t.game.AvailableBoxes() {
-			newGame, addedValue := t.game.FillBox(box, roll)
-			expectedRemainingScore := t.strategy.Compute(newGame)
-			expectedPositionValue := expectedRemainingScore.Shift(addedValue)
-			best = best.Max(expectedPositionValue)
-			expectedPositionValue.Close()
-		}
-		return best
-	}
-}
-
-func (t *TurnOptimizer) getBestFillParallel(roll yahtzee.Roll) GameResult {
-	availableBoxes := t.game.AvailableBoxes()
-	boxResults := make([]boxResult, 0, len(availableBoxes))
-	toCompute := make([]yahtzee.GameState, 0, len(availableBoxes))
-	for _, box := range availableBoxes {
-		newGame, addedValue := t.game.FillBox(box, roll)
-		boxResults = append(boxResults, boxResult{
-			newGame:    newGame,
-			addedValue: addedValue,
-		})
-		toCompute = append(toCompute, newGame)
-	}
-
-	subGameResults := t.strategy.ComputeAll(toCompute)
 	best := t.strategy.observable.Copy()
-	for i, boxResult := range boxResults {
-		expectedRemainingScore := subGameResults[i]
-		expectedPositionValue := expectedRemainingScore.Shift(boxResult.addedValue)
+	for _, box := range t.game.AvailableBoxes() {
+		newGame, addedValue := t.game.FillBox(box, roll)
+		expectedRemainingScore := t.strategy.Compute(newGame)
+		expectedPositionValue := expectedRemainingScore.Shift(addedValue)
 		best = best.Max(expectedPositionValue)
 		expectedPositionValue.Close()
 	}
-
 	return best
 }
 

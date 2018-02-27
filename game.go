@@ -40,6 +40,18 @@ func NewGame() GameState {
 	return GameState(0)
 }
 
+func (game GameState) IsValid() bool {
+	if game.BonusEligible() && !game.BoxFilled(Yahtzee) {
+		return false
+	}
+
+	if game.UpperHalfScore() > UpperHalfBonusThreshold {
+		return false
+	}
+
+	return true
+}
+
 func (game GameState) Turn() int {
 	return NumTurns - game.TurnsRemaining()
 }
