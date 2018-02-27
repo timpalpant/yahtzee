@@ -48,9 +48,17 @@ func (c *Cache) Size() int {
 func (c *Cache) Reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	for i, ok := range c.isSet {
+		if ok {
+			c.values[i].Close()
+		}
+	}
+
 	for i := range c.isSet {
 		c.isSet[i] = false
 	}
+
 	c.nSet = 0
 }
 
