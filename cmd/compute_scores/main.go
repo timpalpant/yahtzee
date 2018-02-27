@@ -50,10 +50,11 @@ func main() {
 	glog.Info("Computing expected score table")
 	for i := 0; i < *iter; i++ {
 		s = optimization.NewStrategy(obs)
-		obs = s.Populate()
-		glog.Infof("Expected score after iteration %v: %.2f", i, obs)
+		s.Populate()
+		obs = s.Compute(yahtzee.NewGame())
+		glog.Infof("E_0 after iteration %v: %.2f", i, obs)
 
-		glog.Infof("Writing score table to: %v", *outputFilename)
+		glog.Infof("Writing results to: %v", *outputFilename)
 		err := s.SaveToFile(*outputFilename)
 		if err != nil {
 			glog.Fatal(err)

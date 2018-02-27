@@ -31,9 +31,14 @@ type ExpectedWork struct {
 }
 
 func NewExpectedWork(e0 float64) ExpectedWork {
+	values := pool.Get().([]float64)
+	for i := range values {
+		values[i] = e0
+	}
+
 	return ExpectedWork{
 		E0:     e0,
-		Values: make([]float64, yahtzee.MaxScore),
+		Values: values,
 	}
 }
 
@@ -42,15 +47,7 @@ func (ew ExpectedWork) Close() {
 }
 
 func (ew ExpectedWork) Copy() GameResult {
-	values := pool.Get().([]float64)
-	for i := range values {
-		values[i] = ew.E0
-	}
-
-	return ExpectedWork{
-		E0:     ew.E0,
-		Values: values,
-	}
+	return NewExpectedWork(ew.E0)
 }
 
 func (ew ExpectedWork) Zero() GameResult {

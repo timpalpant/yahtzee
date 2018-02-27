@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -20,30 +21,17 @@ type GameResult interface {
 	Shift(offset int) GameResult
 }
 
-type Status int
-
-const (
-	NotStarted Status = iota
-	InProgress
-	Done
-)
-
 // Strategy maximizes an observable GameResult through
 // retrograde analysis.
 type Strategy struct {
 	observable GameResult
 	results    *Cache
-	status     []Status
-	queue      []yahtzee.GameState
-	cond       *sync.Cond
 }
 
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable: observable,
 		results:    NewCache(yahtzee.MaxGame),
-		status:     make([]Status, yahtzee.MaxGame),
-		cond:       sync.NewCond(&sync.Mutex{}),
 	}
 }
 
@@ -59,37 +47,68 @@ func (s *Strategy) SaveToFile(filename string) error {
 	return s.results.SaveToFile(filename)
 }
 
-func (s *Strategy) Populate() GameResult {
-	s.initQueue()
-	glog.Infof("%v games in queue", len(s.queue))
-
+func (s *Strategy) Populate() {
+	queue := initQueue()
 	wg := sync.WaitGroup{}
+	wg.Add(runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
-		wg.Add(1)
-		go func(i int) {
-			s.computeWorker(i)
+		go func() {
+			for game := range queue {
+				// NOTE: Work may be duplicated if this game is already
+				// being computed by another worker as a dependency.
+				// Empirically, because of the sorting of games by turn,
+				// this happens rarely enough that we neglect it.
+				s.computeGame(game)
+			}
 			wg.Done()
-		}(i)
+		}()
 	}
 
+	// Wait for all games to be complete.
+	startGame := uint(yahtzee.NewGame())
+	for !s.results.IsSet(startGame) {
+		time.Sleep(time.Second)
+	}
+
+	close(queue)
 	wg.Wait()
-	return s.Compute(yahtzee.NewGame())
 }
 
-func (s *Strategy) initQueue() {
+func initQueue() chan yahtzee.GameState {
 	// Figure out the games we need to compute.
-	s.queue = make([]yahtzee.GameState, 0, yahtzee.MaxGame)
+	toCompute := make([]yahtzee.GameState, 0)
 	for game := yahtzee.NewGame(); game <= yahtzee.MaxGame; game++ {
 		if game.IsValid() {
-			s.queue = append(s.queue, game)
+			toCompute = append(toCompute, game)
 		}
 	}
 
 	// Sort games to compute by number of turns remaining.
 	// i.e. Start at the end games and then proceed to earlier ones.
-	sort.Slice(s.queue, func(i, j int) bool {
-		return s.queue[i].TurnsRemaining() < s.queue[j].TurnsRemaining()
+	sort.Slice(toCompute, func(i, j int) bool {
+		return toCompute[i].TurnsRemaining() < toCompute[j].TurnsRemaining()
 	})
+
+	glog.Infof("Placing %v games to compute in queue", len(toCompute))
+	queue := make(chan yahtzee.GameState, len(toCompute))
+	for _, game := range toCompute {
+		queue <- game
+	}
+
+	return queue
+}
+
+func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
+	opt := NewTurnOptimizer(s, game)
+	defer opt.Close()
+	result := opt.GetOptimalTurnOutcome()
+
+	s.results.Set(uint(game), result)
+	if s.results.Count()%10000 == 0 {
+		glog.V(1).Infof("Computed %v games", s.results.Count())
+	}
+
+	return result
 }
 
 // Compute calculates the value of the given GameState for
@@ -103,52 +122,7 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 		return result
 	}
 
-	s.cond.L.Lock()
-	switch s.status[game] {
-	case NotStarted:
-		s.status[game] = InProgress
-		s.cond.L.Unlock()
-		return s.computeGame(game)
-	case InProgress:
-		for s.status[game] != Done {
-			s.cond.Wait()
-		}
-	}
-
-	s.cond.L.Unlock()
-	return s.results.Get(uint(game))
-}
-
-func (s *Strategy) computeWorker(i int) {
-	glog.V(1).Infof("Compute worker %v starting", i)
-	defer glog.V(1).Infof("Compute worker %v shutting down", i)
-	s.cond.L.Lock()
-	defer s.cond.L.Unlock()
-	for len(s.queue) > 0 {
-		next := s.queue[0]
-		s.queue = s.queue[1:]
-		if s.status[next] == NotStarted {
-			s.status[next] = InProgress
-			s.cond.L.Unlock()
-			s.computeGame(next)
-			s.cond.L.Lock()
-		}
-	}
-}
-
-func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
-	opt := NewTurnOptimizer(s, game)
-	defer opt.Close()
-	result := opt.GetOptimalTurnOutcome()
-	s.results.Set(uint(game), result)
-	if s.results.Count()%10000 == 0 {
-		glog.V(1).Infof("Computed %v games", s.results.Count())
-	}
-
-	// Wake up anybody waiting for this game to be Done.
-	s.status[game] = Done
-	s.cond.Broadcast()
-	return result
+	return s.computeGame(game)
 }
 
 // cachePool maintains a reusable set of caches for TurnOptimizer,
