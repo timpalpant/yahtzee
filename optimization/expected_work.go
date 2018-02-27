@@ -48,7 +48,12 @@ func (ew ExpectedWork) Close() {
 }
 
 func (ew ExpectedWork) Copy() GameResult {
-	return NewExpectedWork(ew.E0)
+	values := pool.Get().([]float64)
+	copy(values, ew.Values)
+	return ExpectedWork{
+		E0:     ew.E0,
+		Values: values,
+	}
 }
 
 func (ew ExpectedWork) Zero() GameResult {
