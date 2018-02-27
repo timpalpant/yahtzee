@@ -16,7 +16,7 @@ type GameResult interface {
 	Close()
 	Zero() GameResult
 	Copy() GameResult
-	Add(other GameResult, weight float64) GameResult
+	Add(other GameResult, weight float32) GameResult
 	Max(other GameResult) GameResult
 	Shift(offset int) GameResult
 }

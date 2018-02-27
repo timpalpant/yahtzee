@@ -89,7 +89,7 @@ type OptimalMoveResponse struct {
 	// Value is the value attributed to this move.
 	// For expected value, it is the expected remaining value.
 	// For ScoreToBeat, it is the probability of beating the score.
-	Value float64
+	Value float32
 }
 
 // OutcomeDistributionRequest gets the range of possible outcomes
@@ -110,14 +110,14 @@ type OutcomeDistributionResponse struct {
 // and the associated final outcome if that choice is made.
 type HoldChoice struct {
 	HeldDice               []int
-	ExpectedFinalScore     float64
-	FinalScoreDistribution []float64
+	ExpectedFinalScore     float32
+	FinalScoreDistribution []float32
 }
 
 // FillChoice represents the outcome of filling a particular box with
 // a given roll.
 type FillChoice struct {
 	BoxFilled              int
-	ExpectedFinalScore     float64
-	FinalScoreDistribution []float64
+	ExpectedFinalScore     float32
+	FinalScoreDistribution []float32
 }

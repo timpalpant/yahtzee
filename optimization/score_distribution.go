@@ -16,7 +16,7 @@ type ScoreDistribution struct {
 	Start int
 	// [P(start + 1), P(start + 2), ..., P(start + N)]
 	// where P(start + N) is the largest integer such that P(s1) > 0.
-	Probabilities []float64
+	Probabilities []float32
 }
 
 func NewScoreDistribution() ScoreDistribution {
@@ -26,7 +26,7 @@ func NewScoreDistribution() ScoreDistribution {
 func (sd ScoreDistribution) Close() {}
 
 func (sd ScoreDistribution) Copy() GameResult {
-	pCopy := make([]float64, len(sd.Probabilities))
+	pCopy := make([]float32, len(sd.Probabilities))
 	copy(pCopy, sd.Probabilities)
 
 	return ScoreDistribution{
@@ -43,7 +43,7 @@ func (sd ScoreDistribution) Stop() int {
 	return sd.Start + len(sd.Probabilities)
 }
 
-func (sd ScoreDistribution) GetProbability(score int) float64 {
+func (sd ScoreDistribution) GetProbability(score int) float32 {
 	if score <= sd.Start {
 		return 1
 	}
@@ -73,7 +73,7 @@ func (sd ScoreDistribution) Max(gr GameResult) GameResult {
 		maxStop = other.Stop()
 	}
 
-	newProbabilities := make([]float64, maxStop-maxStart)
+	newProbabilities := make([]float32, maxStop-maxStart)
 	for s := maxStart; s < maxStop; s++ {
 		//x1 := sd.Probabilities[s-sd.Start]
 		//x2 := other.Probabilities[s-other.Start]
@@ -88,7 +88,7 @@ func (sd ScoreDistribution) Max(gr GameResult) GameResult {
 	}
 }
 
-func max(x1, x2 float64) float64 {
+func max(x1, x2 float32) float32 {
 	if x1 > x2 {
 		return x1
 	}
@@ -96,7 +96,7 @@ func max(x1, x2 float64) float64 {
 	return x2
 }
 
-func (sd ScoreDistribution) Add(gr GameResult, weight float64) GameResult {
+func (sd ScoreDistribution) Add(gr GameResult, weight float32) GameResult {
 	other := gr.(ScoreDistribution)
 	// other.Start must be > sd.Start since otherwise we will be adding
 	// to a probability that is already 1.
@@ -109,7 +109,7 @@ func (sd ScoreDistribution) Add(gr GameResult, weight float64) GameResult {
 		maxStop = other.Stop()
 	}
 
-	newProbabilities := make([]float64, maxStop-sd.Start)
+	newProbabilities := make([]float32, maxStop-sd.Start)
 	copy(newProbabilities, sd.Probabilities)
 	for s := sd.Start; s < other.Stop(); s++ {
 		newProbabilities[s-sd.Start] += weight * other.GetProbability(s)

@@ -10,7 +10,7 @@ func init() {
 
 // ExpectedValue implements GameResult, and represents
 // maximizing your expected score.
-type ExpectedValue float64
+type ExpectedValue float32
 
 func NewExpectedValue() ExpectedValue {
 	return ExpectedValue(0)
@@ -26,7 +26,7 @@ func (ev ExpectedValue) Zero() GameResult {
 	return NewExpectedValue()
 }
 
-func (ev ExpectedValue) Add(other GameResult, weight float64) GameResult {
+func (ev ExpectedValue) Add(other GameResult, weight float32) GameResult {
 	otherEV := other.(ExpectedValue)
 	return ev + ExpectedValue(weight)*otherEV
 }

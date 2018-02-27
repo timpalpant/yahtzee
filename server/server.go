@@ -105,7 +105,7 @@ func formatHoldChoices(expectedScores map[yahtzee.Roll]optimization.GameResult,
 	scoreDistributions map[yahtzee.Roll]optimization.GameResult) []HoldChoice {
 	holdChoices := make([]HoldChoice, 0, len(expectedScores))
 	for roll, es := range expectedScores {
-		expectedScore := float64(es.(optimization.ExpectedValue))
+		expectedScore := float32(es.(optimization.ExpectedValue))
 		distribution := asDistribution(scoreDistributions[roll])
 		holdChoice := HoldChoice{roll.Dice(), expectedScore, distribution}
 		holdChoices = append(holdChoices, holdChoice)
@@ -118,7 +118,7 @@ func formatFillChoices(expectedScores map[yahtzee.Box]optimization.GameResult,
 	scoreDistributions map[yahtzee.Box]optimization.GameResult) []FillChoice {
 	fillChoices := make([]FillChoice, 0, len(expectedScores))
 	for box, es := range expectedScores {
-		expectedScore := float64(es.(optimization.ExpectedValue))
+		expectedScore := float32(es.(optimization.ExpectedValue))
 		distribution := asDistribution(scoreDistributions[box])
 		fillChoice := FillChoice{int(box), expectedScore, distribution}
 		fillChoices = append(fillChoices, fillChoice)
@@ -211,9 +211,9 @@ func asRoll(dice []int) yahtzee.Roll {
 	return r
 }
 
-func asDistribution(gr optimization.GameResult) []float64 {
+func asDistribution(gr optimization.GameResult) []float32 {
 	sd := gr.(optimization.ScoreDistribution)
-	result := make([]float64, yahtzee.MaxScore)
+	result := make([]float32, yahtzee.MaxScore)
 	for score := 0; score < yahtzee.MaxScore; score++ {
 		result[score] = sd.GetProbability(score)
 	}
@@ -221,10 +221,10 @@ func asDistribution(gr optimization.GameResult) []float64 {
 	return result
 }
 
-func gameResultValue(gr optimization.GameResult, scoreToBeat int) float64 {
+func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
 	switch gr := gr.(type) {
 	case optimization.ExpectedValue:
-		return float64(gr)
+		return float32(gr)
 	case optimization.ScoreDistribution:
 		return gr.GetProbability(scoreToBeat)
 	}
@@ -232,9 +232,9 @@ func gameResultValue(gr optimization.GameResult, scoreToBeat int) float64 {
 	panic("Unknown game result type")
 }
 
-func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int) (yahtzee.Roll, float64) {
+func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int) (yahtzee.Roll, float32) {
 	var best yahtzee.Roll
-	var bestValue float64
+	var bestValue float32
 	for hold, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
@@ -246,9 +246,9 @@ func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int
 	return best, bestValue
 }
 
-func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, scoreToBeat int) (yahtzee.Box, float64) {
+func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, scoreToBeat int) (yahtzee.Box, float32) {
 	var best yahtzee.Box
-	var bestValue float64
+	var bestValue float32
 	for box, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
