@@ -8,6 +8,7 @@ import (
 	"gonum.org/v1/gonum/floats"
 
 	"github.com/timpalpant/yahtzee"
+	"github.com/timpalpant/yahtzee/optimization/f64"
 )
 
 var pool = sync.Pool{
@@ -74,19 +75,8 @@ func clear(v []float64) {
 
 func (ew ExpectedWork) Max(gr GameResult) GameResult {
 	other := gr.(ExpectedWork)
-	for s := 0; s < len(ew.Values); s++ {
-		ew.Values[s] = min(ew.Values[s], other.Values[s])
-	}
-
+	f64.Min(ew.Values, other.Values)
 	return ew
-}
-
-func min(x1, x2 float64) float64 {
-	if x1 < x2 {
-		return x1
-	}
-
-	return x2
 }
 
 func (ew ExpectedWork) Add(gr GameResult, weight float64) GameResult {
