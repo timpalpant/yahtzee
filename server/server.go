@@ -161,7 +161,7 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 		if req.ScoreToBeat > 0 {
 			p0Result := ys.highScoreStrat.Compute(yahtzee.NewGame())
 			p0 := p0Result.(optimization.ScoreDistribution).GetProbability(req.ScoreToBeat)
-			criticalValue := p0 * (1.0 - float64(game.Turn()+1)/float64(yahtzee.NumTurns))
+			criticalValue := p0 * (1.0 - float32(game.Turn()+1)/float32(yahtzee.NumTurns))
 			resp.NewGame = (resp.Value < criticalValue)
 		}
 	default:

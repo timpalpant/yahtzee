@@ -124,14 +124,14 @@ func TestProbability(t *testing.T) {
 	}
 
 	for _, input := range cases {
-		total := 0.0
+		total := float32(0.0)
 		for _, roll := range input.SubsequentRolls() {
 			conditionalP := (roll - input).Probability()
 			total += conditionalP
 		}
 
 		eps := 1e-6
-		if math.Abs(total-1.0) > eps {
+		if math.Abs(float64(total-1.0)) > eps {
 			t.Errorf("%v: Total probability = %v", input, total)
 		}
 	}

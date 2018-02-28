@@ -45,6 +45,10 @@ func (sd ScoreDistribution) Zero() GameResult {
 	return NewScoreDistribution()
 }
 
+func (sd ScoreDistribution) GetProbability(score int) float32 {
+	return sd[score]
+}
+
 func (sd ScoreDistribution) Max(gr GameResult) GameResult {
 	other := gr.(ScoreDistribution)
 	f32.Min(sd, other)
