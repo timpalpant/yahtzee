@@ -53,7 +53,8 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 		}
 
 		glog.Infof("Detected roll: %v", roll)
-		resp, err := yp.client.GetOptimalMove(yp.game, yp.turnStep, roll, scoreToBeat)
+		remainingScore := scoreToBeat - yp.currentScore
+		resp, err := yp.client.GetOptimalMove(yp.game, yp.turnStep, roll, remainingScore)
 		if err != nil {
 			return err
 		}
@@ -80,13 +81,13 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 
 				nHeld := len(resp.HeldDice)
 				// Discount sleep time based on number of dice held.
-				sleep = 3 * time.Second - time.Duration(1e9 * float64(nHeld) / 5.0)
+				sleep = 3*time.Second - time.Duration(1e9*float64(nHeld)/5.0)
 			}
 		case yahtzee.FillBox:
 			box := yahtzee.Box(resp.BoxFilled)
 			scoreAdded := yp.fillBox(box, roll)
 			// Sleep extra long proportionally to score to be added.
-			sleep = 4 * time.Second + time.Duration(1e9 * float64(scoreAdded) / 50.0)
+			sleep = 4*time.Second + time.Duration(1e9*float64(scoreAdded)/50.0)
 		}
 
 		yp.prevRoll = roll

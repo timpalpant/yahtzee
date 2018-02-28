@@ -1,18 +1,22 @@
-package yahtzee
+package optimization
 
 import (
-	"compress/gzip"
 	"encoding/gob"
 	"io"
 	"os"
+	"sync"
+
+	gzip "github.com/klauspost/pgzip"
 )
 
 // Cache memoizes computed values. It is designed to be efficiently
 // reusable by resetting the isSet array (which uses an efficient memset).
 // Values for which isSet[i] == false are not defined.
 type Cache struct {
+	mu     sync.RWMutex
 	values []GameResult
 	isSet  []bool
+	nSet   int
 }
 
 func NewCache(size int) *Cache {
@@ -28,6 +32,71 @@ func New2DCache(size1, size2 int) []*Cache {
 		result[i] = NewCache(size2)
 	}
 	return result
+}
+
+func (c *Cache) Count() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nSet
+}
+
+func (c *Cache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.values)
+}
+
+func (c *Cache) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, ok := range c.isSet {
+		if ok {
+			c.values[i].Close()
+		}
+	}
+
+	for i := range c.isSet {
+		c.isSet[i] = false
+	}
+
+	c.nSet = 0
+}
+
+func (c *Cache) Set(key uint, value GameResult) {
+	if c == nil {
+		return
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.values[key] = value
+	c.isSet[key] = true
+	c.nSet++
+}
+
+func (c *Cache) Get(key uint) (GameResult, bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.isSet[key] {
+		return c.values[key], true
+	}
+
+	return nil, false
+}
+
+func (c *Cache) IsSet(key uint) bool {
+	if c == nil {
+		return false
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.isSet[key]
 }
 
 type cacheValue struct {
@@ -76,46 +145,14 @@ func (c *Cache) SaveToFile(filename string) error {
 	defer gzw.Close()
 
 	enc := gob.NewEncoder(gzw)
-	for key, isSet := range c.isSet {
-		if isSet {
-			value := c.values[key]
+	for key, value := range c.values {
+		if c.isSet[key] {
 			result := cacheValue{uint(key), value}
-			if err := enc.Encode(&result); err != nil {
+			if err := enc.Encode(result); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
-}
-
-func (c *Cache) Reset() {
-	for i := range c.isSet {
-		c.isSet[i] = false
-	}
-}
-
-func (c *Cache) Set(key uint, value GameResult) {
-	if c == nil {
-		return
-	}
-
-	c.values[key] = value
-	c.isSet[key] = true
-}
-
-func (c *Cache) Get(key uint) GameResult {
-	if c == nil {
-		return nil
-	}
-
-	return c.values[key]
-}
-
-func (c *Cache) IsSet(key uint) bool {
-	if c == nil {
-		return false
-	}
-
-	return c.isSet[key]
 }

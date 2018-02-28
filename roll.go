@@ -24,7 +24,8 @@ var (
 	probabilities = computeAllProbabilities()
 )
 
-// Type Roll encodes a roll of five dice as the concatenation of 6 octal integers.
+// Type Roll encodes an unordered roll of five dice as the
+// concatenation of 6 octal integers.
 // Each 3 bits represent the number of ones, the number of twos, etc.
 type Roll uint
 
@@ -59,6 +60,10 @@ func NewRollFromDice(dice []int) Roll {
 	}
 
 	return r
+}
+
+func AllDistinctRolls() []Roll {
+	return rolls[0]
 }
 
 // Return a new Roll constructed by adding the given die to this one.
@@ -115,7 +120,7 @@ func (r Roll) PossibleHolds() []Roll {
 	return holds[r]
 }
 
-func (r Roll) Probability() float64 {
+func (r Roll) Probability() float32 {
 	return probabilities[r]
 }
 
@@ -300,14 +305,14 @@ func multinomial(n int, k []int) int {
 	return result
 }
 
-func computeProbability(roll Roll) float64 {
+func computeProbability(roll Roll) float32 {
 	n := multinomial(roll.NumDice(), roll.Counts())
 	d := pow(NSides, roll.NumDice())
-	return float64(n) / float64(d)
+	return float32(n) / float32(d)
 }
 
-func computeAllProbabilities() []float64 {
-	result := make([]float64, MaxRoll)
+func computeAllProbabilities() []float32 {
+	result := make([]float32, MaxRoll)
 	for roll := Roll(0); roll < MaxRoll; roll++ {
 		if roll.NumDice() > NDice {
 			continue // Not a valid Yahtzee roll.
