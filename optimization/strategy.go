@@ -42,7 +42,7 @@ func (s *Strategy) LoadCache(filename string) error {
 		return err
 	}
 
-	if obs, ok := s.results.GetIfSet(uint(yahtzee.NewGame())); ok {
+	if obs, ok := s.results.Get(uint(yahtzee.NewGame())); ok {
 		s.observable = obs
 	}
 
@@ -126,7 +126,7 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 		return s.observable
 	}
 
-	if result, ok := s.results.GetIfSet(uint(game)); ok {
+	if result, ok := s.results.Get(uint(game)); ok {
 		return result
 	}
 
@@ -246,7 +246,7 @@ func (t *TurnOptimizer) GetFillOutcomes(roll yahtzee.Roll) map[yahtzee.Box]GameR
 }
 
 func (t *TurnOptimizer) expectationOverRolls(cache *Cache, held yahtzee.Roll, rollValue func(roll yahtzee.Roll) GameResult) GameResult {
-	if result, ok := cache.GetIfSet(uint(held)); ok {
+	if result, ok := cache.Get(uint(held)); ok {
 		return result
 	}
 

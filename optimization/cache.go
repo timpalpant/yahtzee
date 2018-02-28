@@ -75,21 +75,7 @@ func (c *Cache) Set(key uint, value GameResult) {
 	c.nSet++
 }
 
-func (c *Cache) Get(key uint) GameResult {
-	if c == nil {
-		return nil
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.isSet[key] {
-		return c.values[key]
-	}
-
-	return nil
-}
-
-func (c *Cache) GetIfSet(key uint) (GameResult, bool) {
+func (c *Cache) Get(key uint) (GameResult, bool) {
 	if c == nil {
 		return nil, false
 	}
