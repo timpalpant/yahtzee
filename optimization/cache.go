@@ -1,11 +1,12 @@
 package optimization
 
 import (
-	"compress/gzip"
 	"encoding/gob"
 	"io"
 	"os"
 	"sync"
+
+	gzip "github.com/klauspost/pgzip"
 )
 
 // Cache memoizes computed values. It is designed to be efficiently
