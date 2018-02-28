@@ -67,24 +67,24 @@ func (c *Client) GetGameValue(game yahtzee.GameState, scoreToBeat int) (float32,
 	b := new(bytes.Buffer)
 	enc := json.NewEncoder(b)
 	if err := enc.Encode(req); err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	endpoint := c.uri + "/rest/v1/optimal_move"
 	resp, err := http.Post(endpoint, "application/json; charset=utf-8", b)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request returned: %v", resp.Status)
+		return 0, fmt.Errorf("request returned: %v", resp.Status)
 	}
 
 	result := &server.OptimalMoveResponse{}
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(result); err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	return result.Value, err
