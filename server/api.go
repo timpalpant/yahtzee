@@ -84,8 +84,6 @@ type OptimalMoveResponse struct {
 	HeldDice []int
 	// BoxFilled is returned if the TurnState of the request is FillBox.
 	BoxFilled int
-	// NewGame is set if the optimal move is to quit and start a new game.
-	NewGame bool
 	// Value is the value attributed to this move.
 	// For expected value, it is the expected remaining value.
 	// For ScoreToBeat, it is the probability of beating the score.

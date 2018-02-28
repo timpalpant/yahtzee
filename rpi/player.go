@@ -38,6 +38,10 @@ func NewYahtzeePlayer(detector *detector.YahtzeeDetector,
 
 func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
+	gameValue, err := yp.client.GetGameValue(yp.game, scoreToBeat)
+	if err != nil {
+		return err
+	}
 
 	sleep := 3 * time.Second
 	for !yp.game.GameOver() {
@@ -59,7 +63,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			return err
 		}
 
-		if resp.NewGame {
+		if scoreToBeat > 0 && resp.Value < gameValue {
 			glog.Info("Giving up and starting a new game")
 			break
 		}

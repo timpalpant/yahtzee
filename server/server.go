@@ -135,13 +135,16 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 	var opt *optimization.TurnOptimizer
 	if req.ScoreToBeat > 0 {
-		opt = optimization.NewTurnOptimizer(ys.highScoreStrat, game)
+		opt = optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
 	} else {
 		opt = optimization.NewTurnOptimizer(ys.expectedScoreStrat, game)
 	}
 
 	resp := &OptimalMoveResponse{}
 	switch req.TurnState.Step {
+	case yahtzee.Begin:
+		outcome := opt.GetOptimalTurnOutcome()
+		resp.Value = gameResultValue(outcome, req.ScoreToBeat)
 	case yahtzee.Hold1:
 		outcomes := opt.GetHold1Outcomes(roll)
 		hold, score := bestHold(outcomes, req.ScoreToBeat)
@@ -157,24 +160,11 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 		fill, score := bestBox(outcomes, req.ScoreToBeat)
 		resp.BoxFilled = int(fill)
 		resp.Value = score
-
-		// Check whether we should give up and start a new game.
-		if req.ScoreToBeat > 0 {
-			resp.NewGame = ys.shouldQuit(game, req.ScoreToBeat)
-		}
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
 
 	return resp, nil
-}
-
-func (ys *YahtzeeServer) shouldQuit(game yahtzee.GameState, scoreToBeat int) bool {
-	ew := ys.expectedWorkStrat.Compute(game)
-	score := ew.(optimization.ExpectedWork).GetValue(scoreToBeat)
-	startOver := ys.expectedWorkStrat.Compute(yahtzee.NewGame())
-	startOverScore := startOver.(optimization.ExpectedWork).GetValue(scoreToBeat)
-	return score > startOverScore
 }
 
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
@@ -231,6 +221,8 @@ func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
 	switch gr := gr.(type) {
 	case optimization.ExpectedValue:
 		return float32(gr)
+	case optimization.ExpectedWork:
+		return -gr.GetValue(scoreToBeat)
 	case optimization.ScoreDistribution:
 		return gr.GetProbability(scoreToBeat)
 	}
