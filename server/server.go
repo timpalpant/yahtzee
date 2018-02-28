@@ -233,7 +233,7 @@ func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
 
 func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int) (yahtzee.Roll, float32) {
 	var best yahtzee.Roll
-	bestValue := -math.MaxFloat32
+	var bestValue float32 = -math.MaxFloat32
 	for hold, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
@@ -247,7 +247,7 @@ func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int
 
 func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, scoreToBeat int) (yahtzee.Box, float32) {
 	var best yahtzee.Box
-	bestValue := -math.MaxFloat32
+	var bestValue float32 = -math.MaxFloat32
 	for box, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
