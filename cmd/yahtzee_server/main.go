@@ -19,6 +19,9 @@ func main() {
 	scoreDistributions := flag.String(
 		"score_distributions", "../../data/score-distributions.gob.gz",
 		"File with score distributions to load")
+	expectedWork := flag.String(
+		"expected_work", "../../data/expected-work.gob.gz",
+		"File with expected work distributions to load")
 	port := flag.Int("port", 8080, "Port to bind to")
 	flag.Parse()
 
@@ -36,8 +39,15 @@ func main() {
 		glog.Fatal(err)
 	}
 
+	glog.Info("Loading expected work table")
+	expectedWorkStrat := optimization.NewStrategy(optimization.NewExpectedWork(0))
+	err = expectedWorkStrat.LoadCache(*expectedWork)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
 	glog.Info("Starting server")
-	server := server.NewYahtzeeServer(highScoreStrat, expectedScoreStrat)
+	server := server.NewYahtzeeServer(highScoreStrat, expectedScoreStrat, expectedWorkStrat)
 	http.Handle("/",
 		gziphandler.GzipHandler(http.HandlerFunc(server.Index)))
 	http.Handle("/rest/v1/score",

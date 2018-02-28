@@ -38,7 +38,15 @@ func NewStrategy(observable GameResult) *Strategy {
 // LoadCache loads the results table for this strategy from the
 // given filename.
 func (s *Strategy) LoadCache(filename string) error {
-	return s.results.LoadFromFile(filename)
+	if err := s.results.LoadFromFile(filename); err != nil {
+		return err
+	}
+
+	if obs, ok := s.results.GetIfSet(uint(yahtzee.NewGame())); ok {
+		s.observable = obs
+	}
+
+	return nil
 }
 
 // SaveToFile serializes the results table for this strategy to

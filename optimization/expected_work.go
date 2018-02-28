@@ -66,6 +66,10 @@ func (ew ExpectedWork) Zero() GameResult {
 	}
 }
 
+func (ew ExpectedWork) GetValue(score int) float32 {
+	return ew.Values[score]
+}
+
 func (ew ExpectedWork) String() string {
 	return fmt.Sprintf("{Dist: %v}", ew.Values)
 }

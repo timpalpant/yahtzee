@@ -15,10 +15,11 @@ import (
 type YahtzeeServer struct {
 	highScoreStrat     *optimization.Strategy
 	expectedScoreStrat *optimization.Strategy
+	expectedWorkStrat  *optimization.Strategy
 }
 
-func NewYahtzeeServer(highScoreStrat, expectedScoreStrat *optimization.Strategy) *YahtzeeServer {
-	return &YahtzeeServer{highScoreStrat, expectedScoreStrat}
+func NewYahtzeeServer(highScoreStrat, expectedScoreStrat, expectedWorkStrat *optimization.Strategy) *YahtzeeServer {
+	return &YahtzeeServer{highScoreStrat, expectedScoreStrat, expectedWorkStrat}
 }
 
 func (ys *YahtzeeServer) Index(w http.ResponseWriter, r *http.Request) {
@@ -159,16 +160,21 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 		// Check whether we should give up and start a new game.
 		if req.ScoreToBeat > 0 {
-			p0Result := ys.highScoreStrat.Compute(yahtzee.NewGame())
-			p0 := p0Result.(optimization.ScoreDistribution).GetProbability(req.ScoreToBeat)
-			criticalValue := p0 * (1.0 - float32(game.Turn()+1)/float32(yahtzee.NumTurns))
-			resp.NewGame = (resp.Value < criticalValue)
+			resp.NewGame = ys.shouldQuit(game, req.ScoreToBeat)
 		}
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
 
 	return resp, nil
+}
+
+func (ys *YahtzeeServer) shouldQuit(game yahtzee.GameState, scoreToBeat int) bool {
+	ew := ys.expectedWorkStrat.Compute(game)
+	score := ew.(optimization.ExpectedWork).GetValue(scoreToBeat)
+	startOver := ys.expectedWorkStrat.Compute(yahtzee.NewGame())
+	startOverScore := startOver.(optimization.ExpectedWork).GetValue(scoreToBeat)
+	return score > startOverScore
 }
 
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
