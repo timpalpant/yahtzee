@@ -51,7 +51,7 @@ func (sd ScoreDistribution) GetProbability(score int) float32 {
 
 func (sd ScoreDistribution) Max(gr GameResult) GameResult {
 	other := gr.(ScoreDistribution)
-	f32.Min(sd, other)
+	f32.Max(sd, other)
 	return sd
 }
 
@@ -64,7 +64,7 @@ func (sd ScoreDistribution) Add(gr GameResult, weight float32) GameResult {
 func (sd ScoreDistribution) Shift(offset int) GameResult {
 	newSD := sdPool.Get().(ScoreDistribution)
 	for i := 0; i < offset; i++ {
-		newSD[i] = 0
+		newSD[i] = 1
 	}
 	copy(newSD[offset:], sd)
 	return newSD
