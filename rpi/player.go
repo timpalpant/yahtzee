@@ -43,6 +43,8 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 		return err
 	}
 
+	glog.Infof("Initial game value is: %v", gameValue)
+
 	sleep := 3 * time.Second
 	for !yp.game.GameOver() {
 		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.currentScore)

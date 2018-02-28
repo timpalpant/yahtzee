@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 
 	"github.com/golang/glog"
@@ -232,7 +233,7 @@ func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
 
 func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int) (yahtzee.Roll, float32) {
 	var best yahtzee.Roll
-	var bestValue float32
+	bestValue := -math.MaxFloat32
 	for hold, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
@@ -246,7 +247,7 @@ func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int
 
 func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, scoreToBeat int) (yahtzee.Box, float32) {
 	var best yahtzee.Box
-	var bestValue float32
+	bestValue := -math.MaxFloat32
 	for box, gr := range outcomes {
 		value := gameResultValue(gr, scoreToBeat)
 		if value >= bestValue {
