@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	MaxGame  = 64 << shiftUHS
-	NumTurns = int(Yahtzee + 1)
+	MaxGame       = 64 << shiftUHS
+	MaxScoredGame = MaxGame + (MaxScore << shiftScore)
+	NumTurns      = int(Yahtzee + 1)
 
 	UpperHalfBonusThreshold = 63
 	UpperHalfBonus          = 35
@@ -15,9 +16,11 @@ const (
 )
 
 const (
-	bonusBit  uint = uint(Yahtzee + 1)
-	shiftUHS  uint = bonusBit + 1
-	boxesMask      = (1 << bonusBit) - 1
+	bonusBit     uint = uint(Yahtzee + 1)
+	shiftUHS     uint = bonusBit + 1
+	boxesMask         = (1 << bonusBit) - 1
+	shiftScore   uint = shiftUHS + 6 + 1
+	unscoredMask      = (1 << shiftScore) - 1
 )
 
 // Each distinct game is represented by an integer as follows:
@@ -32,8 +35,10 @@ const (
 //      the range [0, 63]. Since for all upper half scores >= 63 you
 //      get the upper half bonus, they are equivalent and the upper
 //      half score is capped at 63.
+//   4. Bits 20-32 store the total score. The total score is optional
+//      and doesn't need to be set.
 //
-// This means that all games are represented by an integer < 6.4mm (MaxGame).
+// This means that all games are represented by an integer < 2^20 (MaxGame).
 type GameState uint
 
 func NewGame() GameState {
@@ -50,6 +55,11 @@ func (game GameState) IsValid() bool {
 	}
 
 	return true
+}
+
+// Unscored returns this GameState with the total score set to 0.
+func (game GameState) Unscored() GameState {
+	return game & unscoredMask
 }
 
 func (game GameState) Turn() int {
@@ -73,14 +83,18 @@ func (game GameState) BonusEligible() bool {
 }
 
 func (game GameState) UpperHalfScore() int {
-	return int(game >> shiftUHS)
+	return int(game.Unscored() >> shiftUHS)
+}
+
+func (game GameState) TotalScore() int {
+	return int(game >> shiftScore)
 }
 
 // Statically pre-computed set of available boxes for each game.
 var availableBoxes = computeAvailableBoxes()
 
 func (game GameState) AvailableBoxes() []Box {
-	return availableBoxes[game]
+	return availableBoxes[game.Unscored()]
 }
 
 func computeAvailableBoxes() [][]Box {
@@ -118,6 +132,10 @@ func (game GameState) AddUpperHalfScore(score int) GameState {
 
 func (game GameState) SetBonusEligible() GameState {
 	return game | (1 << bonusBit)
+}
+
+func (game GameState) AddScore(score int) GameState {
+	return game + GameState(score<<shiftScore)
 }
 
 func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
@@ -160,6 +178,7 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 		}
 	}
 
+	newGame = newGame.AddScore(value)
 	return newGame, value
 }
 

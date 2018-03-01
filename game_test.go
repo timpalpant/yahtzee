@@ -161,3 +161,40 @@ func TestAvailableBoxes(t *testing.T) {
 		t.Error("Game should be over")
 	}
 }
+
+func TestTotalScore(t *testing.T) {
+	game := NewGame()
+
+	if game.TotalScore() != 0 {
+		t.Error("Total score of new game should be 0")
+	}
+
+	game = game.AddScore(12)
+	if game.TotalScore() != 12 {
+		t.Error("Total score of game should be 12")
+	}
+
+	game = game.AddScore(47)
+	if game.TotalScore() != 59 {
+		t.Error("Total score of game should be 59")
+	}
+
+	game, _ = game.FillBox(Twos, NewRollFromBase10Counts(212))
+	if game.TotalScore() != 61 {
+		t.Error("Total score of game should be 61")
+	}
+
+	game, _ = game.FillBox(Yahtzee, NewRollFromBase10Counts(5))
+	if game.TotalScore() != 111 {
+		t.Error("Total score of game should be 111")
+	}
+
+	if game.Unscored().TotalScore() != 0 {
+		t.Error("Unscored game should always have score 0")
+	}
+
+	game = game.Unscored().AddScore(MaxScore)
+	if game.TotalScore() != MaxScore {
+		t.Error("Game should be able to track maximum possible score")
+	}
+}
