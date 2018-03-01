@@ -8,6 +8,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/golang/glog"
 
+	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/optimization"
 	"github.com/timpalpant/yahtzee/server"
 )
@@ -41,6 +42,14 @@ func main() {
 
 	glog.Info("Loading expected work table")
 	expectedWorkStrat := optimization.NewStrategy(optimization.NewExpectedWork(0))
+	err = expectedWorkStrat.LoadCache(*expectedWork)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	glog.Info("Reloading expected work table with initialized E_0")
+	e0 := expectedWorkStrat.Compute(yahtzee.NewGame())
+	expectedWorkStrat = optimization.NewStrategy(e0)
 	err = expectedWorkStrat.LoadCache(*expectedWork)
 	if err != nil {
 		glog.Fatal(err)

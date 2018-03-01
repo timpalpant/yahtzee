@@ -28,6 +28,7 @@ func NewScoreDistribution() ScoreDistribution {
 		sd[i] = 0
 	}
 
+	sd[0] = 1
 	return sd
 }
 
@@ -63,9 +64,9 @@ func (sd ScoreDistribution) Add(gr GameResult, weight float32) GameResult {
 
 func (sd ScoreDistribution) Shift(offset int) GameResult {
 	newSD := sdPool.Get().(ScoreDistribution)
-	for i := 0; i < offset; i++ {
+	for i := 0; i <= offset; i++ {
 		newSD[i] = 1
 	}
-	copy(newSD[offset:], sd)
+	copy(newSD[offset+1:], sd)
 	return newSD
 }

@@ -82,11 +82,7 @@ func (c *Cache) Get(key uint) (GameResult, bool) {
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.isSet[key] {
-		return c.values[key], true
-	}
-
-	return nil, false
+	return c.values[key], c.isSet[key]
 }
 
 func (c *Cache) IsSet(key uint) bool {
