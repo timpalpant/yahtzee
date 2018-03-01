@@ -207,11 +207,6 @@ func (t *TurnOptimizer) GetHold2Outcomes(roll2 yahtzee.Roll) map[yahtzee.Roll]Ga
 	return result
 }
 
-type boxResult struct {
-	newGame    yahtzee.GameState
-	addedValue int
-}
-
 func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
 	best := t.strategy.observable.Copy()
 	for _, box := range t.game.AvailableBoxes() {
