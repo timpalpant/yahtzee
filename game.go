@@ -51,7 +51,9 @@ func NewGame() GameState {
 // Enumerate all reachable game states.
 func AllGameStates(withScore bool) []GameState {
 	games := make(map[GameState]struct{})
-	enumerateGames(games, NewGame(), withScore)
+	start := NewGame()
+	games[start] = struct{}{}
+	enumerateGames(games, start, withScore)
 
 	result := make([]GameState, 0, len(games))
 	for game := range games {
