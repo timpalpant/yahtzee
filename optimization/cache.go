@@ -9,38 +9,27 @@ import (
 	gzip "github.com/klauspost/pgzip"
 )
 
-// Cache memoizes computed values. It is designed to be efficiently
-// reusable by resetting the isSet array (which uses an efficient memset).
-// Values for which isSet[i] == false are not defined.
+// Cache memoizes computed values and is thread-safe.
 type Cache struct {
 	mu     sync.RWMutex
-	values []GameResult
-	isSet  []bool
-	nSet   int
+	values map[uint]GameResult
 }
 
-func NewCache(size int) *Cache {
+func NewCache() *Cache {
 	return &Cache{
-		values: make([]GameResult, size),
-		isSet:  make([]bool, size),
+		values: make(map[uint]GameResult),
 	}
 }
 
 func New2DCache(size1, size2 int) []*Cache {
 	result := make([]*Cache, size1)
 	for i := range result {
-		result[i] = NewCache(size2)
+		result[i] = NewCache()
 	}
 	return result
 }
 
 func (c *Cache) Count() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.nSet
-}
-
-func (c *Cache) Size() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.values)
@@ -50,17 +39,9 @@ func (c *Cache) Reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for i, ok := range c.isSet {
-		if ok {
-			c.values[i].Close()
-		}
+	for key := range c.values {
+		delete(c.values, key)
 	}
-
-	for i := range c.isSet {
-		c.isSet[i] = false
-	}
-
-	c.nSet = 0
 }
 
 func (c *Cache) Set(key uint, value GameResult) {
@@ -71,8 +52,6 @@ func (c *Cache) Set(key uint, value GameResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.values[key] = value
-	c.isSet[key] = true
-	c.nSet++
 }
 
 func (c *Cache) Get(key uint) (GameResult, bool) {
@@ -82,17 +61,8 @@ func (c *Cache) Get(key uint) (GameResult, bool) {
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.values[key], c.isSet[key]
-}
-
-func (c *Cache) IsSet(key uint) bool {
-	if c == nil {
-		return false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.isSet[key]
+	value, ok := c.values[key]
+	return value, ok
 }
 
 type cacheValue struct {
@@ -142,11 +112,9 @@ func (c *Cache) SaveToFile(filename string) error {
 
 	enc := gob.NewEncoder(gzw)
 	for key, value := range c.values {
-		if c.isSet[key] {
-			result := cacheValue{uint(key), value}
-			if err := enc.Encode(result); err != nil {
-				return err
-			}
+		result := cacheValue{uint(key), value}
+		if err := enc.Encode(result); err != nil {
+			return err
 		}
 	}
 

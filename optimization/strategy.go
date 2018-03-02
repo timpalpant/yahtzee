@@ -42,7 +42,7 @@ type Strategy struct {
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable: observable,
-		results:    NewCache(int(yahtzee.MaxGame)),
+		results:    NewCache(),
 	}
 }
 
@@ -64,7 +64,13 @@ func (s *Strategy) Populate(games []yahtzee.GameState) {
 	wg.Add(runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
+			var currentNTurnsRemaining int
 			for game := range queue {
+				if game.TurnsRemaining() != currentNTurnsRemaining {
+					currentNTurnsRemaining = game.TurnsRemaining()
+					glog.V(1).Infof("Computing games with %v turns remaining", currentNTurnsRemaining)
+				}
+
 				// NOTE: Work may be duplicated if this game is already
 				// being computed by another worker as a dependency.
 				// Empirically, because of the sorting of games by turn,
@@ -77,7 +83,10 @@ func (s *Strategy) Populate(games []yahtzee.GameState) {
 
 	// Wait for all games to be complete.
 	startGame := uint(yahtzee.NewGame())
-	for !s.results.IsSet(startGame) {
+	for {
+		if _, ok := s.results.Get(startGame); ok {
+			break
+		}
 		time.Sleep(time.Second)
 	}
 
@@ -124,11 +133,14 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 	return s.computeGame(game)
 }
 
-// cachePool maintains a reusable set of caches for TurnOptimizer,
+// turnOptimizerPool maintains a reusable set of TurnOptimizers,
 // to reduce memory pressure on the GC during calculation.
-var cachePool = sync.Pool{
+var turnOptimizerPool = sync.Pool{
 	New: func() interface{} {
-		return NewCache(yahtzee.MaxRoll)
+		return &TurnOptimizer{
+			held1Cache: NewCache(),
+			held2Cache: NewCache(),
+		}
 	},
 }
 
@@ -143,22 +155,16 @@ type TurnOptimizer struct {
 }
 
 func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer {
-	held1Cache := cachePool.Get().(*Cache)
-	held1Cache.Reset()
-	held2Cache := cachePool.Get().(*Cache)
-	held2Cache.Reset()
-
-	return &TurnOptimizer{
-		strategy:   strategy,
-		game:       game,
-		held1Cache: held1Cache,
-		held2Cache: held2Cache,
-	}
+	opt := turnOptimizerPool.Get().(*TurnOptimizer)
+	opt.strategy = strategy
+	opt.game = game
+	opt.held1Cache.Reset()
+	opt.held2Cache.Reset()
+	return opt
 }
 
 func (t *TurnOptimizer) Close() {
-	cachePool.Put(t.held1Cache)
-	cachePool.Put(t.held2Cache)
+	turnOptimizerPool.Put(t)
 }
 
 func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {

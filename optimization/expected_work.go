@@ -11,7 +11,7 @@ import (
 
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]float32, yahtzee.MaxScore)
+		return make([]float32, yahtzee.MaxScore+1)
 	},
 }
 
