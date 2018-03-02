@@ -270,9 +270,9 @@ func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
 		} else {
 			expectedRemainingScore := t.strategy.Compute(newGame.Unscored())
 			expectedPositionValue = expectedRemainingScore.Shift(addedValue)
+			defer expectedPositionValue.Close()
 		}
 		best = best.Max(expectedPositionValue)
-		expectedPositionValue.Close()
 	}
 	return best
 }
