@@ -32,6 +32,10 @@ func NewScoreDistribution() ScoreDistribution {
 	return sd
 }
 
+func (ew ScoreDistribution) ScoreDependent() bool {
+	return false
+}
+
 func (sd ScoreDistribution) Close() {
 	sdPool.Put(sd)
 }
@@ -42,7 +46,7 @@ func (sd ScoreDistribution) Copy() GameResult {
 	return newSD
 }
 
-func (sd ScoreDistribution) Zero() GameResult {
+func (sd ScoreDistribution) Zero(game yahtzee.GameState) GameResult {
 	return NewScoreDistribution()
 }
 

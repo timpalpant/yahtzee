@@ -2,6 +2,8 @@ package optimization
 
 import (
 	"encoding/gob"
+
+	"github.com/timpalpant/yahtzee"
 )
 
 func init() {
@@ -16,13 +18,17 @@ func NewExpectedValue() ExpectedValue {
 	return ExpectedValue(0)
 }
 
+func (ew ExpectedValue) ScoreDependent() bool {
+	return false
+}
+
 func (ev ExpectedValue) Close() {}
 
 func (ev ExpectedValue) Copy() GameResult {
 	return ev
 }
 
-func (ev ExpectedValue) Zero() GameResult {
+func (ev ExpectedValue) Zero(game yahtzee.GameState) GameResult {
 	return NewExpectedValue()
 }
 

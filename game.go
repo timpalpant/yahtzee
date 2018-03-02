@@ -2,17 +2,19 @@ package yahtzee
 
 import (
 	"fmt"
+
+	"github.com/golang/glog"
 )
 
 const (
-	MaxGame       = 64 << shiftUHS
-	MaxScoredGame = MaxGame + (MaxScore << shiftScore)
-	NumTurns      = int(Yahtzee + 1)
+	MaxGame       GameState = 64 << shiftUHS
+	MaxScoredGame GameState = MaxGame + (MaxScore << shiftScore)
+	NumTurns                = int(Yahtzee + 1)
 
 	UpperHalfBonusThreshold = 63
 	UpperHalfBonus          = 35
 	YahtzeeBonus            = 100
-	MaxScore                = 1500
+	MaxScore                = 1575
 )
 
 const (
@@ -36,7 +38,8 @@ const (
 //      get the upper half bonus, they are equivalent and the upper
 //      half score is capped at 63.
 //   4. Bits 20-32 store the total score. The total score is optional
-//      and doesn't need to be set.
+//      and doesn't need to be set; the unscored GameState can be
+//      obtained by calling Unscored().
 //
 // This means that all games are represented by an integer < 2^20 (MaxGame).
 type GameState uint
@@ -45,16 +48,40 @@ func NewGame() GameState {
 	return GameState(0)
 }
 
-func (game GameState) IsValid() bool {
-	if game.BonusEligible() && !game.BoxFilled(Yahtzee) {
-		return false
+// Enumerate all reachable game states.
+func AllGameStates(withScore bool) []GameState {
+	games := make(map[GameState]struct{})
+	enumerateGames(games, NewGame(), withScore)
+
+	result := make([]GameState, 0, len(games))
+	for game := range games {
+		result = append(result, game)
 	}
 
-	if game.UpperHalfScore() > UpperHalfBonusThreshold {
-		return false
+	return result
+}
+
+func enumerateGames(games map[GameState]struct{}, game GameState, withScore bool) {
+	if game.GameOver() {
+		return
 	}
 
-	return true
+	for _, roll := range AllDistinctRolls() {
+		for _, box := range game.AvailableBoxes() {
+			newGame, _ := game.FillBox(box, roll)
+			if !withScore {
+				newGame = newGame.Unscored()
+			}
+
+			if _, ok := games[newGame]; !ok {
+				games[newGame] = struct{}{}
+				if len(games)%100000 == 0 {
+					glog.V(1).Infof("Enumerated %v games", len(games))
+				}
+				enumerateGames(games, newGame, withScore)
+			}
+		}
+	}
 }
 
 // Unscored returns this GameState with the total score set to 0.

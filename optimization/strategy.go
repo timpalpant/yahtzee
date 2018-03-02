@@ -13,11 +13,22 @@ import (
 
 // GameResult is an observable to maximize.
 type GameResult interface {
+	// Whether or not this GameResult is score-sensitive.
+	ScoreDependent() bool
+	// Release any resources allocated to this GameResult.
+	// Note: After calling Close(), the GameResult may no longer be used.
 	Close()
-	Zero() GameResult
+	// Return a zero value for the given game.
+	Zero(game yahtzee.GameState) GameResult
+	// Deep copy this GameResult.
 	Copy() GameResult
+	// Add the given GameResult to this one, with the given weight scale factor.
+	// Store the result in this GameResult.
 	Add(other GameResult, weight float32) GameResult
+	// Take the max between this and another GameResult,
+	// storing the result in this one.
 	Max(other GameResult) GameResult
+	// Shift this GameResult by the given score offset.
 	Shift(offset int) GameResult
 }
 
@@ -31,7 +42,7 @@ type Strategy struct {
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable: observable,
-		results:    NewCache(yahtzee.MaxGame),
+		results:    NewCache(int(yahtzee.MaxGame)),
 	}
 }
 
@@ -47,8 +58,8 @@ func (s *Strategy) SaveToFile(filename string) error {
 	return s.results.SaveToFile(filename)
 }
 
-func (s *Strategy) Populate() {
-	queue := initQueue()
+func (s *Strategy) Populate(games []yahtzee.GameState) {
+	queue := initQueue(games)
 	wg := sync.WaitGroup{}
 	wg.Add(runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
@@ -74,15 +85,7 @@ func (s *Strategy) Populate() {
 	wg.Wait()
 }
 
-func initQueue() chan yahtzee.GameState {
-	// Figure out the games we need to compute.
-	toCompute := make([]yahtzee.GameState, 0)
-	for game := yahtzee.NewGame(); game <= yahtzee.MaxGame; game++ {
-		if game.IsValid() {
-			toCompute = append(toCompute, game)
-		}
-	}
-
+func initQueue(toCompute []yahtzee.GameState) chan yahtzee.GameState {
 	// Sort games to compute by number of turns remaining.
 	// i.e. Start at the end games and then proceed to earlier ones.
 	sort.Slice(toCompute, func(i, j int) bool {
@@ -114,10 +117,6 @@ func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
 // Compute calculates the value of the given GameState for
 // the observable that is maximized by this Strategy.
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
-	if game.GameOver() {
-		return s.observable
-	}
-
 	if result, ok := s.results.Get(uint(game)); ok {
 		return result
 	}
@@ -163,8 +162,12 @@ func (t *TurnOptimizer) Close() {
 }
 
 func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
+	if t.game.GameOver() {
+		return t.strategy.observable.Zero(t.game)
+	}
+
 	glog.V(3).Infof("Computing outcome for game %v", t.game)
-	result := t.strategy.observable.Zero()
+	result := t.strategy.observable.Zero(t.game)
 	for _, roll1 := range yahtzee.AllDistinctRolls() {
 		maxValue1 := t.GetBestHold1(roll1)
 		result = result.Add(maxValue1, roll1.Probability())
@@ -211,8 +214,15 @@ func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
 	best := t.strategy.observable.Copy()
 	for _, box := range t.game.AvailableBoxes() {
 		newGame, addedValue := t.game.FillBox(box, roll)
-		expectedRemainingScore := t.strategy.Compute(newGame)
-		expectedPositionValue := expectedRemainingScore.Shift(addedValue)
+		// If the observable is not score-dependent, clear the score
+		// and apply shift to reduce the game state space significantly.
+		var expectedPositionValue GameResult
+		if t.strategy.observable.ScoreDependent() {
+			expectedPositionValue = t.strategy.Compute(newGame)
+		} else {
+			expectedRemainingScore := t.strategy.Compute(newGame.Unscored())
+			expectedPositionValue = expectedRemainingScore.Shift(addedValue)
+		}
 		best = best.Max(expectedPositionValue)
 		expectedPositionValue.Close()
 	}
@@ -241,7 +251,7 @@ func (t *TurnOptimizer) expectationOverRolls(cache *Cache, held yahtzee.Roll, ro
 	if held.NumDice() == yahtzee.NDice {
 		eValue = rollValue(held)
 	} else {
-		eValue = t.strategy.observable.Zero()
+		eValue = t.strategy.observable.Zero(t.game)
 		for side := 1; side <= yahtzee.NSides; side++ {
 			value := t.expectationOverRolls(cache, held.Add(side), rollValue)
 			eValue = eValue.Add(value, 1.0/yahtzee.NSides)

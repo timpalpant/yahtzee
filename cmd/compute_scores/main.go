@@ -1,17 +1,44 @@
 package main
 
 import (
+	"encoding/gob"
 	"flag"
+	"io"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 
 	"github.com/golang/glog"
+	gzip "github.com/klauspost/pgzip"
 
 	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/optimization"
 )
 
+func loadGames(filename string) ([]yahtzee.GameState, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	gzf, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gzf.Close()
+
+	dec := gob.NewDecoder(gzf)
+	var games []yahtzee.GameState
+	if err := dec.Decode(&games); err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return games, nil
+}
+
 func main() {
+	gamesFilename := flag.String("games", "", "File with all enumerated games")
 	observable := flag.String("observable", "expected_value",
 		"Observable to compute (expected_value, score_distribution, expected_work)")
 	outputFilename := flag.String("output", "scores.gob.gz", "Output filename")
@@ -23,9 +50,18 @@ func main() {
 		glog.Info(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	glog.Infof("Max game is: %v", yahtzee.MaxGame)
-	glog.Infof("Max roll is: %v", yahtzee.MaxRoll)
-	glog.Infof("Max score is: %v", yahtzee.MaxScore)
+	glog.Infof("Max game is: %d", yahtzee.MaxGame)
+	glog.Infof("Max scored game is: %d", yahtzee.MaxScoredGame)
+	glog.Infof("Max roll is: %d", yahtzee.MaxRoll)
+	glog.Infof("Max score is: %d", yahtzee.MaxScore)
+
+	glog.Infof("Loading games")
+	games, err := loadGames(*gamesFilename)
+	if err != nil {
+		glog.Fatal(err)
+	} else {
+		glog.Infof("Loaded %v game states", len(games))
+	}
 
 	var obs optimization.GameResult
 	switch *observable {
@@ -50,7 +86,7 @@ func main() {
 	glog.Info("Computing expected score table")
 	for i := 0; i < *iter; i++ {
 		s = optimization.NewStrategy(obs)
-		s.Populate()
+		s.Populate(games)
 		obs = s.Compute(yahtzee.NewGame())
 		glog.Infof("E_0 after iteration %v: %.2f", i, obs)
 

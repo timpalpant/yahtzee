@@ -41,6 +41,10 @@ func NewExpectedWork(e0 float32) ExpectedWork {
 	}
 }
 
+func (ew ExpectedWork) ScoreDependent() bool {
+	return true
+}
+
 func (ew ExpectedWork) Close() {
 	pool.Put(ew.Values)
 }
@@ -54,10 +58,17 @@ func (ew ExpectedWork) Copy() GameResult {
 	}
 }
 
-func (ew ExpectedWork) Zero() GameResult {
+func (ew ExpectedWork) Zero(game yahtzee.GameState) GameResult {
 	values := pool.Get().([]float32)
-	for i := range values {
-		values[i] = 1
+	if game.GameOver() {
+		for score := 0; score <= game.TotalScore(); score++ {
+			values[score] = 0
+		}
+		copy(values[game.TotalScore()+1:], ew.Values[game.TotalScore()+1:])
+	} else {
+		for i := range values {
+			values[i] = 1
+		}
 	}
 
 	return ExpectedWork{
