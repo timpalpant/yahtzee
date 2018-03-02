@@ -34,6 +34,9 @@ func loadGames(filename string) ([]yahtzee.GameState, error) {
 		return nil, err
 	}
 
+	// TODO: Remove once enumerated games have been regenerated.
+	games = append(games, yahtzee.NewGame())
+
 	return games, nil
 }
 

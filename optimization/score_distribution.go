@@ -53,7 +53,9 @@ func (sd ScoreDistribution) Copy() GameResult {
 }
 
 func (sd ScoreDistribution) Zero(game yahtzee.GameState) GameResult {
-	return NewScoreDistribution()
+	newSD := NewScoreDistribution()
+	newSD[0] = 0
+	return newSD
 }
 
 func (sd ScoreDistribution) GetProbability(score int) float32 {
