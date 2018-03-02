@@ -36,6 +36,12 @@ func (ew ScoreDistribution) ScoreDependent() bool {
 	return false
 }
 
+func (sd ScoreDistribution) HashCode() string {
+	hasher := floatHasherPool.Get().(*floatHasher)
+	defer floatHasherPool.Put(hasher)
+	return hasher.HashSlice([]float32(sd))
+}
+
 func (sd ScoreDistribution) Close() {
 	sdPool.Put(sd)
 }

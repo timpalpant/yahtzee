@@ -11,7 +11,7 @@ import (
 
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]float32, yahtzee.MaxScore+1)
+		return NewExpectedWork(0)
 	},
 }
 
@@ -21,24 +21,15 @@ func init() {
 
 // ExpectedWork implements GameResult, and represents
 // minimizing the work required to achieve a desired score.
-type ExpectedWork struct {
-	// The expected work at the start of a game.
-	E0 float32
-	// [W(start + 1), W(start + 2), ..., W(start + N)]
-	// where W(start + N) is the largest integer such that W(start + N) < E0.
-	Values []float32
-}
+type ExpectedWork []float32
 
 func NewExpectedWork(e0 float32) ExpectedWork {
-	values := pool.Get().([]float32)
+	values := make([]float32, yahtzee.MaxScore+1)
 	for i := range values {
 		values[i] = e0
 	}
 
-	return ExpectedWork{
-		E0:     e0,
-		Values: values,
-	}
+	return ExpectedWork(values)
 }
 
 func (ew ExpectedWork) ScoreDependent() bool {
@@ -46,63 +37,62 @@ func (ew ExpectedWork) ScoreDependent() bool {
 }
 
 func (ew ExpectedWork) Close() {
-	pool.Put(ew.Values)
+	pool.Put(ew)
+}
+
+func (ew ExpectedWork) HashCode() string {
+	hasher := floatHasherPool.Get().(*floatHasher)
+	defer floatHasherPool.Put(hasher)
+	return hasher.HashSlice([]float32(ew))
 }
 
 func (ew ExpectedWork) Copy() GameResult {
-	values := pool.Get().([]float32)
-	copy(values, ew.Values)
-	return ExpectedWork{
-		E0:     ew.E0,
-		Values: values,
-	}
+	values := pool.Get().(ExpectedWork)
+	copy(values, ew)
+	return values
 }
 
 func (ew ExpectedWork) Zero(game yahtzee.GameState) GameResult {
-	values := pool.Get().([]float32)
+	values := pool.Get().(ExpectedWork)
 	if game.GameOver() {
 		for score := 0; score <= game.TotalScore(); score++ {
 			values[score] = 0
 		}
-		copy(values[game.TotalScore()+1:], ew.Values[game.TotalScore()+1:])
+		copy(values[game.TotalScore()+1:], values[game.TotalScore()+1:])
 	} else {
 		for i := range values {
 			values[i] = 1
 		}
 	}
 
-	return ExpectedWork{
-		E0:     ew.E0,
-		Values: values,
-	}
+	return values
 }
 
 func (ew ExpectedWork) GetValue(score int) float32 {
-	return ew.Values[score]
+	return ew[score]
 }
 
 func (ew ExpectedWork) String() string {
-	return fmt.Sprintf("{Dist: %v}", ew.Values)
+	return fmt.Sprintf("{EW: %v}", ew)
 }
 
 func (ew ExpectedWork) Max(gr GameResult) GameResult {
 	other := gr.(ExpectedWork)
-	f32.Min(ew.Values, other.Values)
+	f32.Min(ew, other)
 	return ew
 }
 
 func (ew ExpectedWork) Add(gr GameResult, weight float32) GameResult {
 	other := gr.(ExpectedWork)
-	f32.AddScaled(ew.Values, weight, other.Values)
+	f32.AddScaled(ew, weight, other)
 	return ew
 }
 
 func (ew ExpectedWork) Shift(offset int) GameResult {
-	newValues := pool.Get().([]float32)
+	newValues := pool.Get().(ExpectedWork)
 	for i := 0; i < offset; i++ {
 		newValues[i] = 0
 	}
-	copy(newValues[offset:], ew.Values)
-	ew.Values = newValues
-	return ew
+	copy(newValues[offset:], ew)
+	return newValues
 }

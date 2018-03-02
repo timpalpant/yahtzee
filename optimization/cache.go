@@ -6,6 +6,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/golang/glog"
+
 	gzip "github.com/klauspost/pgzip"
 )
 
@@ -63,6 +65,30 @@ func (c *Cache) Get(key uint) (GameResult, bool) {
 	defer c.mu.RUnlock()
 	value, ok := c.values[key]
 	return value, ok
+}
+
+// Attempts to deduplicate the stored values.
+// Keys with identical value content will be updated to point
+// to a shared address.
+func (c *Cache) Compress() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	glog.V(1).Infof("Attempting to deduplicate %v values", len(c.values))
+	byHash := make(map[string]GameResult)
+	nDuplicates := 0
+	for key, value := range c.values {
+		h := value.HashCode()
+		if other, ok := byHash[h]; ok {
+			nDuplicates++
+			c.values[key] = other
+			value.Close()
+		} else {
+			byHash[h] = value
+		}
+	}
+
+	glog.V(1).Infof("Deduplicated %v values", nDuplicates)
 }
 
 type cacheValue struct {

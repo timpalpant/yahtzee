@@ -1,10 +1,9 @@
 package optimization
 
 import (
+	"math"
 	"runtime"
-	"sort"
 	"sync"
-	"time"
 
 	"github.com/golang/glog"
 
@@ -30,6 +29,8 @@ type GameResult interface {
 	Max(other GameResult) GameResult
 	// Shift this GameResult by the given score offset.
 	Shift(offset int) GameResult
+	// Return a cryptographic hash of this GameResult value.
+	HashCode() string
 }
 
 // Strategy maximizes an observable GameResult through
@@ -59,55 +60,90 @@ func (s *Strategy) SaveToFile(filename string) error {
 }
 
 func (s *Strategy) Populate(games []yahtzee.GameState) {
-	queue := initQueue(games)
+	queues := asQueues(bucketByTurn(games))
+	// Retrograde analysis: process end games first and work backward
+	// so that later game results can be reused.
+	for turn := maxKey(queues); turn >= minKey(queues); turn-- {
+		if toProcess, ok := queues[turn]; ok {
+			glog.Infof("Processing turn %v games", turn)
+			s.processGames(toProcess)
+			glog.Infof("Compressing results cache")
+			s.results.Compress()
+		} else {
+			glog.Warningf("No games for turn %v", turn)
+		}
+	}
+}
+
+func maxKey(m map[int]chan yahtzee.GameState) int {
+	result := math.MinInt64
+	for key := range m {
+		if key > result {
+			result = key
+		}
+	}
+
+	return result
+}
+
+func minKey(m map[int]chan yahtzee.GameState) int {
+	result := math.MaxInt64
+	for key := range m {
+		if key < result {
+			result = key
+		}
+	}
+
+	return result
+}
+
+func (s *Strategy) processGames(queue chan yahtzee.GameState) {
 	wg := sync.WaitGroup{}
 	wg.Add(runtime.NumCPU())
+
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
-			var currentNTurnsRemaining int
-			for game := range queue {
-				if game.TurnsRemaining() != currentNTurnsRemaining {
-					currentNTurnsRemaining = game.TurnsRemaining()
-					glog.V(1).Infof("Computing games with %v turns remaining", currentNTurnsRemaining)
+			for {
+				select {
+				case game := <-queue:
+					s.computeGame(game)
+				default:
+					wg.Done()
+					return
 				}
-
-				// NOTE: Work may be duplicated if this game is already
-				// being computed by another worker as a dependency.
-				// Empirically, because of the sorting of games by turn,
-				// this happens rarely enough that we neglect it.
-				s.computeGame(game)
 			}
-			wg.Done()
 		}()
 	}
 
-	// Wait for all games to be complete.
-	startGame := uint(yahtzee.NewGame())
-	for {
-		if _, ok := s.results.Get(startGame); ok {
-			break
-		}
-		time.Sleep(time.Second)
-	}
-
-	close(queue)
 	wg.Wait()
+	close(queue)
 }
 
-func initQueue(toCompute []yahtzee.GameState) chan yahtzee.GameState {
-	// Sort games to compute by number of turns remaining.
-	// i.e. Start at the end games and then proceed to earlier ones.
-	sort.Slice(toCompute, func(i, j int) bool {
-		return toCompute[i].TurnsRemaining() < toCompute[j].TurnsRemaining()
-	})
-
-	glog.Infof("Placing %v games to compute in queue", len(toCompute))
-	queue := make(chan yahtzee.GameState, len(toCompute))
+// Bucket games to compute by number of turns remaining.
+// We want to start at the end games and then proceed to earlier ones,
+// so that previous results can be used.
+func bucketByTurn(toCompute []yahtzee.GameState) map[int][]yahtzee.GameState {
+	glog.Infof("Bucketing %v games to compute by turn", len(toCompute))
+	byTurn := make(map[int][]yahtzee.GameState, yahtzee.NumTurns)
 	for _, game := range toCompute {
-		queue <- game
+		t := game.Turn()
+		byTurn[t] = append(byTurn[t], game)
 	}
 
-	return queue
+	return byTurn
+}
+
+func asQueues(gamesByTurn map[int][]yahtzee.GameState) map[int]chan yahtzee.GameState {
+	glog.Infof("Initializing queues")
+	result := make(map[int]chan yahtzee.GameState, len(gamesByTurn))
+	for turn, games := range gamesByTurn {
+		result[turn] = make(chan yahtzee.GameState, len(games))
+		for _, game := range games {
+			result[turn] <- game
+		}
+	}
+
+	return result
 }
 
 func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {

@@ -24,6 +24,10 @@ func (ew ExpectedValue) ScoreDependent() bool {
 
 func (ev ExpectedValue) Close() {}
 
+func (ev ExpectedValue) HashCode() string {
+	return HashFloat32(float32(ev))
+}
+
 func (ev ExpectedValue) Copy() GameResult {
 	return ev
 }
