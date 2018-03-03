@@ -78,7 +78,7 @@ func loadResults(filename string) (map[yahtzee.GameState]GameResult, error) {
 
 	dec := gob.NewDecoder(gzf)
 	results := make(map[yahtzee.GameState]GameResult)
-	if err := dec.Decode(&result); err != nil && err != io.EOF {
+	if err := dec.Decode(&results); err != nil && err != io.EOF {
 		return nil, err
 	}
 
@@ -98,19 +98,20 @@ func (s *Strategy) SaveToFile(filename string) error {
 	defer gzw.Close()
 
 	enc := gob.NewEncoder(gzw)
-	return enc.Encode(result)
+	return enc.Encode(s.results)
 }
 
 func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	gamesByTurn := bucketByTurn(games)
-	queues := asQueues(gamesByTurn)
 	// Retrograde analysis: process end games first and work backward
 	// so that later game results can be reused.
-	firstTurn := minKey(queues)
-	lastTurn := maxKey(queues)
+	firstTurn := minKey(gamesByTurn)
+	lastTurn := maxKey(gamesByTurn)
 	for turn := lastTurn; turn >= firstTurn; turn-- {
-		glog.Infof("Processing turn %v games", turn)
-		results := s.processGames(queues[turn])
+		glog.Infof("Processing %v turn %v games", len(gamesByTurn[turn]), turn)
+		results := s.processGames(gamesByTurn[turn])
+		glog.Infof("Compressing results")
+		compressResults(results)
 
 		glog.Infof("Pruning later turns from cache")
 		for _, game := range gamesByTurn[turn+1] {
@@ -122,8 +123,6 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 			s.results[game] = result
 		}
 
-		glog.Infof("Compressing results cache")
-		compressResults(s.results)
 		glog.Infof("Saving cache checkpoint")
 		s.SaveToFile(fmt.Sprintf("%s.turn%02d", output, turn))
 	}
@@ -167,7 +166,7 @@ func compressResults(results map[yahtzee.GameState]GameResult) {
 	glog.V(1).Infof("Deduplicated %v values", nDuplicates)
 }
 
-func maxKey(m map[int]chan yahtzee.GameState) int {
+func maxKey(m map[int][]yahtzee.GameState) int {
 	result := math.MinInt64
 	for key := range m {
 		if key > result {
@@ -178,7 +177,7 @@ func maxKey(m map[int]chan yahtzee.GameState) int {
 	return result
 }
 
-func minKey(m map[int]chan yahtzee.GameState) int {
+func minKey(m map[int][]yahtzee.GameState) int {
 	result := math.MaxInt64
 	for key := range m {
 		if key < result {
@@ -189,36 +188,50 @@ func minKey(m map[int]chan yahtzee.GameState) int {
 	return result
 }
 
-func (s *Strategy) processGames(queue chan yahtzee.GameState) map[yahtzee.GameState]GameResult {
+func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameState]GameResult {
+	nWorkers := 2 * runtime.NumCPU()
+	chunks := split(toProcess, nWorkers)
 	wg := sync.WaitGroup{}
-	wg.Add(runtime.NumCPU())
+	wg.Add(nWorkers)
 	mu := sync.Mutex{}
-	allResults := make(map[yahtzee.GameState]GameResult, cap(queue))
-	for i := 0; i < runtime.NumCPU(); i++ {
-		go func() {
-			results := make(map[yahtzee.GameState]GameResult, 0)
-			for {
-				select {
-				case game := <-queue:
-					opt := NewTurnOptimizer(s, game)
-					results[game] = opt.GetOptimalTurnOutcome()
-					opt.Close()
-				default:
-					mu.Lock()
-					for game, result := range results {
-						allResults[game] = result
-					}
-					mu.Unlock()
-					wg.Done()
-					return
-				}
+	allResults := make(map[yahtzee.GameState]GameResult, len(toProcess))
+	for i, chunk := range chunks {
+		go func(i int, chunk []yahtzee.GameState) {
+			glog.V(1).Infof("Worker %v processing %v games", i, len(chunk))
+			results := make([]GameResult, len(chunk))
+			for j, game := range chunk {
+				opt := NewTurnOptimizer(s, game)
+				results[j] = opt.GetOptimalTurnOutcome()
+				opt.Close()
 			}
-		}()
+
+			glog.V(1).Infof("Worker %v complete, aggregating results", i)
+			mu.Lock()
+			for j, result := range results {
+				allResults[chunk[j]] = result
+			}
+			mu.Unlock()
+			glog.V(1).Infof("Worker %v done", i)
+			wg.Done()
+		}(i, chunk)
 	}
 
 	wg.Wait()
-	close(queue)
 	return allResults
+}
+
+func split(games []yahtzee.GameState, nChunks int) [][]yahtzee.GameState {
+	result := make([][]yahtzee.GameState, 0, nChunks)
+	chunkSize := len(games) / nChunks + 1
+	for start := 0; start < len(games); start += chunkSize {
+		end := start + chunkSize
+		if end > len(games) {
+			end = len(games)
+		}
+		chunk := games[start:end]
+		result = append(result, chunk)
+	}
+	return result
 }
 
 // Bucket games to compute by number of turns remaining.
@@ -233,19 +246,6 @@ func bucketByTurn(toCompute []yahtzee.GameState) map[int][]yahtzee.GameState {
 	}
 
 	return byTurn
-}
-
-func asQueues(gamesByTurn map[int][]yahtzee.GameState) map[int]chan yahtzee.GameState {
-	glog.Infof("Initializing queues")
-	result := make(map[int]chan yahtzee.GameState, len(gamesByTurn))
-	for turn, games := range gamesByTurn {
-		result[turn] = make(chan yahtzee.GameState, len(games))
-		for _, game := range games {
-			result[turn] <- game
-		}
-	}
-
-	return result
 }
 
 // Compute calculates the value of the given GameState for
