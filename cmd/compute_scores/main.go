@@ -37,6 +37,21 @@ func loadGames(filename string) ([]yahtzee.GameState, error) {
 	return games, nil
 }
 
+func getObservable(observable string) optimization.GameResult {
+	switch observable {
+	case "expected_value":
+		return optimization.NewExpectedValue()
+	case "score_distribution":
+		return optimization.NewScoreDistribution()
+	case "expected_work":
+		return optimization.NewExpectedWork(10000)
+	default:
+		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
+	}
+
+	return nil
+}
+
 func main() {
 	gamesFilename := flag.String("games", "", "File with all enumerated games")
 	observable := flag.String("observable", "expected_value",
@@ -63,17 +78,7 @@ func main() {
 		glog.Infof("Loaded %v game states", len(games))
 	}
 
-	var obs optimization.GameResult
-	switch *observable {
-	case "expected_value":
-		obs = optimization.NewExpectedValue()
-	case "score_distribution":
-		obs = optimization.NewScoreDistribution()
-	case "expected_work":
-		obs = optimization.NewExpectedWork(10000)
-	default:
-		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
-	}
+	obs := getObservable(*observable)
 
 	var s *optimization.Strategy
 	if *resume != "" {
@@ -86,7 +91,7 @@ func main() {
 	glog.Info("Computing expected score table")
 	for i := 0; i < *iter; i++ {
 		s = optimization.NewStrategy(obs)
-		s.Populate(games)
+		s.Populate(games, *outputFilename)
 		obs = s.Compute(yahtzee.NewGame())
 		glog.Infof("E_0 after iteration %v: %.2f", i, obs)
 

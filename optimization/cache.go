@@ -41,7 +41,8 @@ func (c *Cache) Reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for key := range c.values {
+	for key, value := range c.values {
+		value.Close()
 		delete(c.values, key)
 	}
 }
@@ -65,6 +66,21 @@ func (c *Cache) Get(key uint) (GameResult, bool) {
 	defer c.mu.RUnlock()
 	value, ok := c.values[key]
 	return value, ok
+}
+
+func (c *Cache) Remove(key uint) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.values, key)
+}
+
+func (c *Cache) RemoveAll(keys []uint) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, key := range keys {
+		delete(c.values, key)
+	}
 }
 
 // Attempts to deduplicate the stored values.

@@ -1,6 +1,7 @@
 package optimization
 
 import (
+	"fmt"
 	"math"
 	"runtime"
 	"sync"
@@ -59,19 +60,24 @@ func (s *Strategy) SaveToFile(filename string) error {
 	return s.results.SaveToFile(filename)
 }
 
-func (s *Strategy) Populate(games []yahtzee.GameState) {
-	queues := asQueues(bucketByTurn(games))
+func (s *Strategy) Populate(games []yahtzee.GameState, output string) {
+	gamesByTurn := bucketByTurn(games)
+	queues := asQueues(gamesByTurn)
 	// Retrograde analysis: process end games first and work backward
 	// so that later game results can be reused.
-	for turn := maxKey(queues); turn >= minKey(queues); turn-- {
-		if toProcess, ok := queues[turn]; ok {
-			glog.Infof("Processing turn %v games", turn)
-			s.processGames(toProcess)
-			glog.Infof("Compressing results cache")
-			s.results.Compress()
-		} else {
-			glog.Warningf("No games for turn %v", turn)
+	firstTurn := minKey(queues)
+	lastTurn := maxKey(queues)
+	for turn := lastTurn; turn >= firstTurn; turn-- {
+		glog.Infof("Processing turn %v games", turn)
+		s.processGames(queues[turn])
+		glog.Infof("Pruning later turns from cache")
+		for _, game := range gamesByTurn[turn+1] {
+			s.results.Remove(uint(game))
 		}
+		glog.Infof("Compressing results cache")
+		s.results.Compress()
+		glog.Infof("Saving cache checkpoint")
+		s.results.SaveToFile(fmt.Sprintf("%s.turn%02d", output, turn))
 	}
 }
 
