@@ -72,6 +72,7 @@ func main() {
 	glog.Infof("Max scored game is: %d", yahtzee.MaxScoredGame)
 	glog.Infof("Max roll is: %d", yahtzee.MaxRoll)
 	glog.Infof("Max score is: %d", yahtzee.MaxScore)
+	glog.Infof("Number of distinct rolls: %d", len(yahtzee.AllDistinctRolls()))
 
 	glog.Infof("Loading games")
 	games, err := loadGames(*gamesFilename)

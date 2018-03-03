@@ -61,6 +61,11 @@ func LoadFromFile(filename string) (*Strategy, error) {
 	return &Strategy{zero, results}, nil
 }
 
+type cacheValue struct {
+	Key yahtzee.GameState
+	Value GameResult
+}
+
 func loadResults(filename string) (map[yahtzee.GameState]GameResult, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -76,8 +81,16 @@ func loadResults(filename string) (map[yahtzee.GameState]GameResult, error) {
 
 	dec := gob.NewDecoder(gzf)
 	results := make(map[yahtzee.GameState]GameResult)
-	if err := dec.Decode(&results); err != nil && err != io.EOF {
-		return nil, err
+	for {
+		var result cacheValue
+		if err := dec.Decode(&result); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		results[result.Key] = result.Value
 	}
 
 	return results, nil
@@ -96,7 +109,14 @@ func (s *Strategy) SaveToFile(filename string) error {
 	defer gzw.Close()
 
 	enc := gob.NewEncoder(gzw)
-	return enc.Encode(s.results)
+	for key, value := range s.results {
+		result := cacheValue{key, value}
+		if err := enc.Encode(result); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
@@ -107,17 +127,7 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	lastTurn := maxKey(gamesByTurn)
 	for turn := lastTurn; turn >= firstTurn; turn-- {
 		glog.Infof("Processing %v turn %v games", len(gamesByTurn[turn]), turn)
-		results := s.processGames(gamesByTurn[turn])
-
-		glog.Infof("Pruning later turns from cache")
-		for _, game := range gamesByTurn[turn+1] {
-			delete(s.results, game)
-		}
-
-		glog.Infof("Placing turn results in cache")
-		for game, result := range results {
-			s.results[game] = result
-		}
+		s.results = s.processGames(gamesByTurn[turn])
 
 		glog.Infof("Saving cache checkpoint")
 		s.SaveToFile(fmt.Sprintf("%s.turn%02d", output, turn))
