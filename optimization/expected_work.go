@@ -40,12 +40,6 @@ func (ew ExpectedWork) Close() {
 	pool.Put(ew)
 }
 
-func (ew ExpectedWork) HashCode() string {
-	hasher := floatHasherPool.Get().(*floatHasher)
-	defer floatHasherPool.Put(hasher)
-	return hasher.HashSlice([]float32(ew))
-}
-
 func (ew ExpectedWork) Copy() GameResult {
 	values := pool.Get().(ExpectedWork)
 	copy(values, ew)

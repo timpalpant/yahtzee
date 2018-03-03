@@ -34,8 +34,6 @@ type GameResult interface {
 	Max(other GameResult) GameResult
 	// Shift this GameResult by the given score offset.
 	Shift(offset int) GameResult
-	// Return a cryptographic hash of this GameResult value.
-	HashCode() string
 }
 
 // Strategy maximizes an observable GameResult through
@@ -110,8 +108,6 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	for turn := lastTurn; turn >= firstTurn; turn-- {
 		glog.Infof("Processing %v turn %v games", len(gamesByTurn[turn]), turn)
 		results := s.processGames(gamesByTurn[turn])
-		glog.Infof("Compressing results")
-		compressResults(results)
 
 		glog.Infof("Pruning later turns from cache")
 		for _, game := range gamesByTurn[turn+1] {
@@ -143,27 +139,6 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	}
 
 	return nil
-}
-
-// Attempts to deduplicate the stored values.
-// Keys with identical value content will be updated to point
-// to a shared address.
-func compressResults(results map[yahtzee.GameState]GameResult) {
-	glog.V(1).Infof("Attempting to deduplicate %v values", len(results))
-	byHash := make(map[string]GameResult)
-	nDuplicates := 0
-	for key, value := range results {
-		h := value.HashCode()
-		if other, ok := byHash[h]; ok {
-			nDuplicates++
-			results[key] = other
-			value.Close()
-		} else {
-			byHash[h] = value
-		}
-	}
-
-	glog.V(1).Infof("Deduplicated %v values", nDuplicates)
 }
 
 func maxKey(m map[int][]yahtzee.GameState) int {
