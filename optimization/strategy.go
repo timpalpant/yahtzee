@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"sync"
 
-	gzip "github.com/klauspost/pgzip"
 	"github.com/golang/glog"
+	gzip "github.com/klauspost/pgzip"
 
 	"github.com/timpalpant/yahtzee"
 )
@@ -128,7 +128,7 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	}
 
 	glog.Infof("Loading all turn results into cache")
-	for turn := firstTurn+1; turn <= lastTurn; turn++ {
+	for turn := firstTurn + 1; turn <= lastTurn; turn++ {
 		glog.V(1).Infof("Loading turn %v results", turn)
 		results, err := loadResults(fmt.Sprintf("%s.turn%02d", output, turn))
 		if err != nil {
@@ -222,7 +222,7 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameS
 
 func split(games []yahtzee.GameState, nChunks int) [][]yahtzee.GameState {
 	result := make([][]yahtzee.GameState, 0, nChunks)
-	chunkSize := len(games) / nChunks + 1
+	chunkSize := len(games)/nChunks + 1
 	for start := 0; start < len(games); start += chunkSize {
 		end := start + chunkSize
 		if end > len(games) {
@@ -259,8 +259,8 @@ func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
 var turnOptimizerPool = sync.Pool{
 	New: func() interface{} {
 		return &TurnOptimizer{
-			held1Cache: NewCache(),
-			held2Cache: NewCache(),
+			held1Cache: NewCache(yahtzee.MaxRoll),
+			held2Cache: NewCache(yahtzee.MaxRoll),
 		}
 	},
 }
