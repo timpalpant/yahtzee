@@ -177,10 +177,10 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameS
 	nWorkers := 2 * runtime.NumCPU()
 	chunks := split(toProcess, nWorkers)
 	wg := sync.WaitGroup{}
-	wg.Add(nWorkers)
 	mu := sync.Mutex{}
 	allResults := make(map[yahtzee.GameState]GameResult, len(toProcess))
 	for i, chunk := range chunks {
+		wg.Add(1)
 		go func(i int, chunk []yahtzee.GameState) {
 			glog.V(1).Infof("Worker %v processing %v games", i, len(chunk))
 			results := make([]GameResult, len(chunk))
