@@ -1,6 +1,7 @@
 package yahtzee
 
 import (
+	"encoding/gob"
 	"fmt"
 
 	"github.com/golang/glog"
@@ -24,6 +25,10 @@ const (
 	shiftScore   uint = shiftUHS + 6 + 1
 	unscoredMask      = (1 << shiftScore) - 1
 )
+
+func init() {
+	gob.Register(GameState(0))
+}
 
 // Each distinct game is represented by an integer as follows:
 //

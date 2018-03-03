@@ -1,11 +1,15 @@
 package optimization
 
 import (
+	"encoding/gob"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"runtime"
 	"sync"
 
+	gzip "github.com/klauspost/pgzip"
 	"github.com/golang/glog"
 
 	"github.com/timpalpant/yahtzee"
@@ -38,29 +42,66 @@ type GameResult interface {
 // retrograde analysis.
 type Strategy struct {
 	observable GameResult
-	results    *Cache
+	results    map[yahtzee.GameState]GameResult
 }
 
 func NewStrategy(observable GameResult) *Strategy {
 	return &Strategy{
 		observable: observable,
-		results:    NewCache(),
+		results:    make(map[yahtzee.GameState]GameResult),
 	}
 }
 
-// LoadCache loads the results table for this strategy from the
-// given filename.
-func (s *Strategy) LoadCache(filename string) error {
-	return s.results.LoadFromFile(filename)
+// LoadFromFile loads a computed strategy from the given filename.
+func LoadFromFile(filename string) (*Strategy, error) {
+	results, err := loadResults(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	zero := results[yahtzee.NewGame()]
+	return &Strategy{zero, results}, nil
+}
+
+func loadResults(filename string) (map[yahtzee.GameState]GameResult, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	gzf, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gzf.Close()
+
+	dec := gob.NewDecoder(gzf)
+	results := make(map[yahtzee.GameState]GameResult)
+	if err := dec.Decode(&result); err != nil && err != io.EOF {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 // SaveToFile serializes the results table for this strategy to
 // the given filename.
 func (s *Strategy) SaveToFile(filename string) error {
-	return s.results.SaveToFile(filename)
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	gzw := gzip.NewWriter(f)
+	defer gzw.Close()
+
+	enc := gob.NewEncoder(gzw)
+	return enc.Encode(result)
 }
 
-func (s *Strategy) Populate(games []yahtzee.GameState, output string) {
+func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	gamesByTurn := bucketByTurn(games)
 	queues := asQueues(gamesByTurn)
 	// Retrograde analysis: process end games first and work backward
@@ -69,16 +110,61 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) {
 	lastTurn := maxKey(queues)
 	for turn := lastTurn; turn >= firstTurn; turn-- {
 		glog.Infof("Processing turn %v games", turn)
-		s.processGames(queues[turn])
+		results := s.processGames(queues[turn])
+
 		glog.Infof("Pruning later turns from cache")
 		for _, game := range gamesByTurn[turn+1] {
-			s.results.Remove(uint(game))
+			delete(s.results, game)
 		}
+
+		glog.Infof("Placing turn results in cache")
+		for game, result := range results {
+			s.results[game] = result
+		}
+
 		glog.Infof("Compressing results cache")
-		s.results.Compress()
+		compressResults(s.results)
 		glog.Infof("Saving cache checkpoint")
-		s.results.SaveToFile(fmt.Sprintf("%s.turn%02d", output, turn))
+		s.SaveToFile(fmt.Sprintf("%s.turn%02d", output, turn))
 	}
+
+	glog.Infof("Loading all turn results into cache")
+	for turn := firstTurn+1; turn <= lastTurn; turn++ {
+		glog.V(1).Infof("Loading turn %v results", turn)
+		results, err := loadResults(fmt.Sprintf("%s.turn%02d", output, turn))
+		if err != nil {
+			return err
+		}
+
+		for game, result := range results {
+			s.results[game] = result
+		}
+
+		glog.V(1).Infof("%v results in cache", len(s.results))
+	}
+
+	return nil
+}
+
+// Attempts to deduplicate the stored values.
+// Keys with identical value content will be updated to point
+// to a shared address.
+func compressResults(results map[yahtzee.GameState]GameResult) {
+	glog.V(1).Infof("Attempting to deduplicate %v values", len(results))
+	byHash := make(map[string]GameResult)
+	nDuplicates := 0
+	for key, value := range results {
+		h := value.HashCode()
+		if other, ok := byHash[h]; ok {
+			nDuplicates++
+			results[key] = other
+			value.Close()
+		} else {
+			byHash[h] = value
+		}
+	}
+
+	glog.V(1).Infof("Deduplicated %v values", nDuplicates)
 }
 
 func maxKey(m map[int]chan yahtzee.GameState) int {
@@ -103,17 +189,26 @@ func minKey(m map[int]chan yahtzee.GameState) int {
 	return result
 }
 
-func (s *Strategy) processGames(queue chan yahtzee.GameState) {
+func (s *Strategy) processGames(queue chan yahtzee.GameState) map[yahtzee.GameState]GameResult {
 	wg := sync.WaitGroup{}
 	wg.Add(runtime.NumCPU())
-
+	mu := sync.Mutex{}
+	allResults := make(map[yahtzee.GameState]GameResult, cap(queue))
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
+			results := make(map[yahtzee.GameState]GameResult, 0)
 			for {
 				select {
 				case game := <-queue:
-					s.computeGame(game)
+					opt := NewTurnOptimizer(s, game)
+					results[game] = opt.GetOptimalTurnOutcome()
+					opt.Close()
 				default:
+					mu.Lock()
+					for game, result := range results {
+						allResults[game] = result
+					}
+					mu.Unlock()
 					wg.Done()
 					return
 				}
@@ -123,6 +218,7 @@ func (s *Strategy) processGames(queue chan yahtzee.GameState) {
 
 	wg.Wait()
 	close(queue)
+	return allResults
 }
 
 // Bucket games to compute by number of turns remaining.
@@ -152,27 +248,10 @@ func asQueues(gamesByTurn map[int][]yahtzee.GameState) map[int]chan yahtzee.Game
 	return result
 }
 
-func (s *Strategy) computeGame(game yahtzee.GameState) GameResult {
-	opt := NewTurnOptimizer(s, game)
-	defer opt.Close()
-	result := opt.GetOptimalTurnOutcome()
-
-	s.results.Set(uint(game), result)
-	if s.results.Count()%10000 == 0 {
-		glog.V(1).Infof("Computed %v games", s.results.Count())
-	}
-
-	return result
-}
-
 // Compute calculates the value of the given GameState for
 // the observable that is maximized by this Strategy.
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
-	if result, ok := s.results.Get(uint(game)); ok {
-		return result
-	}
-
-	return s.computeGame(game)
+	return s.results[game]
 }
 
 // turnOptimizerPool maintains a reusable set of TurnOptimizers,

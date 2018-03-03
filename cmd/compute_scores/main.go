@@ -86,8 +86,10 @@ func main() {
 	var s *optimization.Strategy
 	if *resume != "" {
 		glog.Infof("Resuming training, loading cache from %v", *resume)
-		s = optimization.NewStrategy(obs)
-		s.LoadCache(*resume)
+		s, err = optimization.LoadFromFile(*resume)
+		if err != nil {
+			glog.Fatal(err)
+		}
 		obs = s.Compute(yahtzee.NewGame())
 	}
 
