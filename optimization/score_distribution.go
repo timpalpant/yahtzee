@@ -2,17 +2,11 @@ package optimization
 
 import (
 	"encoding/gob"
-	"sync"
+	"fmt"
 
 	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/optimization/f32"
 )
-
-var sdPool = sync.Pool{
-	New: func() interface{} {
-		return make(ScoreDistribution, yahtzee.MaxScore)
-	},
-}
 
 func init() {
 	gob.Register(ScoreDistribution{})
@@ -23,33 +17,43 @@ func init() {
 type ScoreDistribution []float32
 
 func NewScoreDistribution() ScoreDistribution {
-	sd := sdPool.Get().(ScoreDistribution)
-	for i := range sd {
-		sd[i] = 0
+	result := make(ScoreDistribution, yahtzee.MaxScore+1)
+	for i := range result {
+		result[i] = 0
 	}
 
-	sd[0] = 1
-	return sd
+	result[0] = 1
+	return result
 }
 
 func (ew ScoreDistribution) ScoreDependent() bool {
 	return false
 }
 
-func (sd ScoreDistribution) Close() {
-	sdPool.Put(sd)
+func (sd ScoreDistribution) New() GameResult {
+	return NewScoreDistribution()
 }
 
-func (sd ScoreDistribution) Copy() GameResult {
-	newSD := sdPool.Get().(ScoreDistribution)
-	copy(newSD, sd)
-	return newSD
+func (sd ScoreDistribution) GameValue(game yahtzee.GameState) GameResult {
+	if !game.GameOver() {
+		panic(fmt.Errorf("trying to get endgame value of game that is not over: %v", game))
+	}
+
+	return NewScoreDistribution()
 }
 
-func (sd ScoreDistribution) Zero(game yahtzee.GameState) GameResult {
-	newSD := NewScoreDistribution()
-	newSD[0] = 0
-	return newSD
+func (sd ScoreDistribution) CopyInto(other GameResult) GameResult {
+	otherSD := other.(ScoreDistribution)
+	copy(otherSD, sd)
+	return otherSD
+}
+
+func (sd ScoreDistribution) Zero(other GameResult) GameResult {
+	otherSD := other.(ScoreDistribution)
+	for i := range otherSD {
+		otherSD[i] = 0
+	}
+	return otherSD
 }
 
 func (sd ScoreDistribution) GetProbability(score int) float32 {
@@ -69,7 +73,7 @@ func (sd ScoreDistribution) Add(gr GameResult, weight float32) GameResult {
 }
 
 func (sd ScoreDistribution) Shift(offset int) GameResult {
-	newSD := sdPool.Get().(ScoreDistribution)
+	newSD := make(ScoreDistribution, len(sd))
 	for i := 0; i <= offset; i++ {
 		newSD[i] = 1
 	}

@@ -2,6 +2,7 @@ package optimization
 
 import (
 	"encoding/gob"
+	"fmt"
 
 	"github.com/timpalpant/yahtzee"
 )
@@ -22,13 +23,23 @@ func (ew ExpectedValue) ScoreDependent() bool {
 	return false
 }
 
-func (ev ExpectedValue) Close() {}
+func (ev ExpectedValue) New() GameResult {
+	return NewExpectedValue()
+}
 
-func (ev ExpectedValue) Copy() GameResult {
+func (ev ExpectedValue) GameValue(game yahtzee.GameState) GameResult {
+	if !game.GameOver() {
+		panic(fmt.Errorf("trying to get endgame value of game that is not over: %v", game))
+	}
+
+	return ExpectedValue(0)
+}
+
+func (ev ExpectedValue) CopyInto(other GameResult) GameResult {
 	return ev
 }
 
-func (ev ExpectedValue) Zero(game yahtzee.GameState) GameResult {
+func (ev ExpectedValue) Zero(other GameResult) GameResult {
 	return NewExpectedValue()
 }
 

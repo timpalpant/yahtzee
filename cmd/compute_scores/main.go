@@ -73,11 +73,9 @@ func main() {
 	case "score_distribution":
 		obs = optimization.NewScoreDistribution()
 	case "expected_work":
-		obs = optimization.NewExpectedWork(float32(*e0))
-	case "single_expected_work":
-		obs = optimization.NewSingleExpectedWork(*scoreToBeat, float32(*e0))
+		obs = optimization.NewExpectedWork(*scoreToBeat, float32(*e0))
 	default:
-		glog.Fatal("Unknown observable: %v, options: expected_value, score_distribution")
+		glog.Fatalf("Unknown observable: %v, options: expected_value, score_distribution, expected_work", *observable)
 	}
 
 	glog.Infof("Loading games")

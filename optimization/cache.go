@@ -2,14 +2,16 @@ package optimization
 
 // Cache memoizes computed values used within a Turn.
 type Cache struct {
-	values []GameResult
-	isSet  []bool
+	values      []GameResult
+	isSet       []bool
+	denseValues []GameResult
 }
 
 func NewCache(size int) *Cache {
 	return &Cache{
-		values: make([]GameResult, size),
-		isSet:  make([]bool, size),
+		values:      make([]GameResult, size),
+		isSet:       make([]bool, size),
+		denseValues: make([]GameResult, 0, size),
 	}
 }
 
@@ -25,16 +27,14 @@ func (c *Cache) Len() int {
 	return len(c.values)
 }
 
-func (c *Cache) Reset() {
-	for i, isSet := range c.isSet {
-		if isSet {
-			c.values[i].Close()
-		}
-	}
-
+func (c *Cache) Reset() []GameResult {
 	for i := range c.isSet {
 		c.isSet[i] = false
 	}
+
+	result := c.denseValues
+	c.denseValues = c.denseValues[:0]
+	return result
 }
 
 func (c *Cache) Set(key uint, value GameResult) {
@@ -44,6 +44,7 @@ func (c *Cache) Set(key uint, value GameResult) {
 
 	c.values[key] = value
 	c.isSet[key] = true
+	c.denseValues = append(c.denseValues, value)
 }
 
 func (c *Cache) Get(key uint) (GameResult, bool) {
