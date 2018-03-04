@@ -17,10 +17,11 @@ var pool = sync.Pool{
 
 func init() {
 	gob.Register(ExpectedWork{})
+	gob.Register(SingleExpectedWork{})
 }
 
 // ExpectedWork implements GameResult, and represents
-// minimizing the work required to achieve a desired score.
+// minimizing the work required to achisewe a desired score.
 type ExpectedWork []float32
 
 func NewExpectedWork(e0 float32) ExpectedWork {
@@ -89,4 +90,58 @@ func (ew ExpectedWork) Shift(offset int) GameResult {
 	}
 	copy(newValues[offset:], ew)
 	return newValues
+}
+
+// SingleExpectedWork implements GameResult, and represents
+// minimizing the work to achisewe a particular score. Unlike
+// ExpectedWork, it computes the result for only a single score.
+type SingleExpectedWork struct {
+	ScoreToBeat int
+	Value       float32
+}
+
+func NewSingleExpectedWork(scoreToBeat int, e0 float32) SingleExpectedWork {
+	return SingleExpectedWork{scoreToBeat, e0}
+}
+
+func (ew SingleExpectedWork) ScoreDependent() bool {
+	return true
+}
+
+func (sew SingleExpectedWork) Close() {}
+
+func (sew SingleExpectedWork) Copy() GameResult {
+	return sew
+}
+
+func (sew SingleExpectedWork) Zero(game yahtzee.GameState) GameResult {
+	value := float32(1.0)
+	if game.GameOver() {
+		if game.TotalScore() > sew.ScoreToBeat {
+			value = 0
+		} else {
+			value = sew.Value
+		}
+	}
+
+	return SingleExpectedWork{sew.ScoreToBeat, value}
+}
+
+func (sew SingleExpectedWork) Add(other GameResult, weight float32) GameResult {
+	othersew := other.(SingleExpectedWork)
+	value := sew.Value + weight*othersew.Value
+	return SingleExpectedWork{sew.ScoreToBeat, value}
+}
+
+func (sew SingleExpectedWork) Max(other GameResult) GameResult {
+	othersew := other.(SingleExpectedWork)
+	value := sew.Value
+	if othersew.Value < value {
+		value = othersew.Value
+	}
+	return SingleExpectedWork{sew.ScoreToBeat, value}
+}
+
+func (sew SingleExpectedWork) Shift(offset int) GameResult {
+	return SingleExpectedWork{sew.ScoreToBeat, sew.Value + float32(offset)}
 }
