@@ -247,7 +247,7 @@ func NewTurnOptimizer(strategy *Strategy, game yahtzee.GameState) *TurnOptimizer
 		game:       game,
 		held1Cache: NewCache(yahtzee.MaxRoll),
 		held2Cache: NewCache(yahtzee.MaxRoll),
-		pool:       make([]GameResult, 0, yahtzee.MaxRoll),
+		pool:       make([]GameResult, 0, 1000),
 	}
 }
 
@@ -383,7 +383,7 @@ func (t *TurnOptimizer) getZero() GameResult {
 func (t *TurnOptimizer) alloc() GameResult {
 	if len(t.pool) == 0 {
 		glog.V(1).Infof("Growing pool by %v", cap(t.pool))
-		for i := 0; i < cap(t.pool); i++ {
+		for i := 0; i < 2*cap(t.pool); i++ {
 			t.pool = append(t.pool, t.strategy.observable.New())
 		}
 	}

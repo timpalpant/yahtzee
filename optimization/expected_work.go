@@ -53,7 +53,7 @@ func (ew *ExpectedWork) CopyInto(other GameResult) GameResult {
 
 func (ew *ExpectedWork) Zero(other GameResult) GameResult {
 	otherEW := other.(*ExpectedWork)
-	otherEW.Value = 0
+	otherEW.Value = 1 // +1 work for every roll.
 	return otherEW
 }
 

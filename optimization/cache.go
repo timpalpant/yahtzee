@@ -11,7 +11,7 @@ func NewCache(size int) *Cache {
 	return &Cache{
 		values:      make([]GameResult, size),
 		isSet:       make([]bool, size),
-		denseValues: make([]GameResult, 0, size),
+		denseValues: make([]GameResult, 0),
 	}
 }
 
