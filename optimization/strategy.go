@@ -122,7 +122,7 @@ func (s *Strategy) SaveToFile(filename string) error {
 	return nil
 }
 
-func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
+func (s *Strategy) Populate(games []yahtzee.GameState, output string) {
 	gamesByTurn := bucketByTurn(games)
 	// Retrograde analysis: process end games first and work backward
 	// so that later game results can be reused.
@@ -130,15 +130,8 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) error {
 	lastTurn := maxKey(gamesByTurn)
 	for turn := lastTurn; turn >= firstTurn; turn-- {
 		glog.Infof("Processing %v turn %v games", len(gamesByTurn[turn]), turn)
-		s.results = s.processGames(gamesByTurn[turn])
-
-		glog.Infof("Saving checkpoint")
-		if err := s.SaveToFile(output); err != nil {
-			return err
-		}
+		s.processGames(gamesByTurn[turn])
 	}
-
-	return nil
 }
 
 func maxKey(m map[int][]yahtzee.GameState) int {
@@ -163,12 +156,11 @@ func minKey(m map[int][]yahtzee.GameState) int {
 	return result
 }
 
-func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameState]GameResult {
+func (s *Strategy) processGames(toProcess []yahtzee.GameState) {
 	nWorkers := runtime.NumCPU()
 	chunks := split(toProcess, nWorkers)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
-	allResults := make(map[yahtzee.GameState]GameResult, len(toProcess))
 	for i, chunk := range chunks {
 		wg.Add(1)
 		go func(i int, chunk []yahtzee.GameState) {
@@ -184,7 +176,7 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameS
 			glog.V(1).Infof("Worker %v complete, aggregating results", i)
 			mu.Lock()
 			for j, result := range results {
-				allResults[chunk[j]] = result
+				s.results[chunk[j]] = result
 			}
 			mu.Unlock()
 			glog.V(1).Infof("Worker %v done", i)
@@ -193,7 +185,6 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) map[yahtzee.GameS
 	}
 
 	wg.Wait()
-	return allResults
 }
 
 func split(games []yahtzee.GameState, nChunks int) [][]yahtzee.GameState {
