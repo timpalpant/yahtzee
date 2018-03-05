@@ -161,6 +161,7 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) {
 	chunks := split(toProcess, nWorkers)
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
+	results := make(map[yahtzee.GameState]GameResult)
 	for i, chunk := range chunks {
 		wg.Add(1)
 		go func(i int, chunk []yahtzee.GameState) {
@@ -176,7 +177,7 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) {
 			glog.V(1).Infof("Worker %v complete, aggregating results", i)
 			mu.Lock()
 			for j, result := range results {
-				s.results[chunk[j]] = result
+				results[chunk[j]] = result
 			}
 			mu.Unlock()
 			glog.V(1).Infof("Worker %v done", i)
@@ -185,6 +186,10 @@ func (s *Strategy) processGames(toProcess []yahtzee.GameState) {
 	}
 
 	wg.Wait()
+
+	for game, result := range results {
+		s.results[game] = result
+	}
 }
 
 func split(games []yahtzee.GameState, nChunks int) [][]yahtzee.GameState {
