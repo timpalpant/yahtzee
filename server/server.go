@@ -136,31 +136,46 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 	var opt *optimization.TurnOptimizer
 	if req.ScoreToBeat > 0 {
-		opt = optimization.NewTurnOptimizer(ys.highScoreStrat, game)
+		opt = optimization.NewTurnOptimizer(ys.highScoreStrat, game.Unscored())
 	} else {
-		opt = optimization.NewTurnOptimizer(ys.expectedScoreStrat, game)
+		opt = optimization.NewTurnOptimizer(ys.expectedScoreStrat, game.Unscored())
 	}
 
+	workOpt := optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
+	e0 := ys.expectedWorkStrat.Compute(yahtzee.NewGame()).(*optimization.ExpectedWork).Value
+	remainingScore := req.ScoreToBeat - game.TotalScore()
 	resp := &OptimalMoveResponse{}
 	switch req.TurnState.Step {
 	case yahtzee.Begin:
 		outcome := opt.GetOptimalTurnOutcome()
-		resp.Value = gameResultValue(outcome, req.ScoreToBeat)
+		resp.Value = gameResultValue(outcome, remainingScore)
+
+		work := workOpt.GetOptimalTurnOutcome().(*optimization.ExpectedWork).Value
+		resp.StartOver = (work > e0)
 	case yahtzee.Hold1:
 		outcomes := opt.GetHold1Outcomes(roll)
-		hold, score := bestHold(outcomes, req.ScoreToBeat)
+		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
+
+		work := workOpt.GetBestHold1(roll).(*optimization.ExpectedWork).Value
+		resp.StartOver = (work > e0)
 	case yahtzee.Hold2:
 		outcomes := opt.GetHold2Outcomes(roll)
-		hold, score := bestHold(outcomes, req.ScoreToBeat)
+		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
+
+		work := workOpt.GetBestHold2(roll).(*optimization.ExpectedWork).Value
+		resp.StartOver = (work > e0)
 	case yahtzee.FillBox:
 		outcomes := opt.GetFillOutcomes(roll)
-		fill, score := bestBox(outcomes, req.ScoreToBeat)
+		fill, score := bestBox(outcomes, remainingScore)
 		resp.BoxFilled = int(fill)
 		resp.Value = score
+
+		work := workOpt.GetBestFill(roll).(*optimization.ExpectedWork).Value
+		resp.StartOver = (work > e0)
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
@@ -171,8 +186,8 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
 	game := req.GameState.ToYahtzeeGameState()
 	roll := asRoll(req.TurnState.Dice)
-	hsOpt := optimization.NewTurnOptimizer(ys.highScoreStrat, game)
-	esOpt := optimization.NewTurnOptimizer(ys.expectedScoreStrat, game)
+	hsOpt := optimization.NewTurnOptimizer(ys.highScoreStrat, game.Unscored())
+	esOpt := optimization.NewTurnOptimizer(ys.expectedScoreStrat, game.Unscored())
 	glog.Infof("Computing outcomes for game: %v, roll: %v", game, roll)
 
 	resp := &OutcomeDistributionResponse{}
@@ -218,24 +233,24 @@ func asDistribution(gr optimization.GameResult) []float32 {
 	return result
 }
 
-func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
+func gameResultValue(gr optimization.GameResult, remainingScore int) float32 {
 	switch gr := gr.(type) {
 	case optimization.ExpectedValue:
 		return float32(gr)
 	case *optimization.ExpectedWork:
 		return -float32(gr.Value)
 	case optimization.ScoreDistribution:
-		return gr.GetProbability(scoreToBeat)
+		return gr.GetProbability(remainingScore)
 	}
 
 	panic("Unknown game result type")
 }
 
-func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int) (yahtzee.Roll, float32) {
+func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, remainingScore int) (yahtzee.Roll, float32) {
 	var best yahtzee.Roll
 	var bestValue float32 = -math.MaxFloat32
 	for hold, gr := range outcomes {
-		value := gameResultValue(gr, scoreToBeat)
+		value := gameResultValue(gr, remainingScore)
 		if value >= bestValue {
 			best = hold
 			bestValue = value
@@ -245,11 +260,11 @@ func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, scoreToBeat int
 	return best, bestValue
 }
 
-func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, scoreToBeat int) (yahtzee.Box, float32) {
+func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, remainingScore int) (yahtzee.Box, float32) {
 	var best yahtzee.Box
 	var bestValue float32 = -math.MaxFloat32
 	for box, gr := range outcomes {
-		value := gameResultValue(gr, scoreToBeat)
+		value := gameResultValue(gr, remainingScore)
 		if value >= bestValue {
 			best = box
 			bestValue = value

@@ -179,12 +179,17 @@ class OutcomeCalculator {
     this.expectedScore = 254;
   }
 
+  get remainingScore() {
+    return this.scoreToBeat - this.game.grandTotal;
+  }
+
   get gameStateRequest() {
     return {
       "GameState": {
         "Filled": this.game.boxes.map((box) => box !== null),
         "YahtzeeBonusEligible": this.game.yahtzeeBonusEligible,
         "UpperHalfScore": this.game.upperHalfScore,
+        "TotalScore": this.game.grandTotal
       },
       "TurnState": {
         "Step": this.game.turnState,
@@ -270,8 +275,8 @@ class OutcomeCalculator {
     }
 
     let current = this.currentHoldChoice;
-    this.chart.data.datasets[0].data = shiftDistribution(current.FinalScoreDistribution, this.game.grandTotal);
-    this.expectedScore = current.ExpectedFinalScore;
+    this.chart.data.datasets[0].data = shiftDistribution(current.RemainingScoreDistribution, this.game.grandTotal);
+    this.expectedScore = this.game.grandTotal + current.ExpectedRemainingScore;
   }
 
   get bestHoldChoice() {
@@ -325,9 +330,9 @@ class OutcomeCalculator {
 
   score(choice) {
     if (outcomes.gameType === EXPECTED_VALUE) {
-      return choice.ExpectedFinalScore;
+      return choice.ExpectedRemainingScore;
     } else {
-      return choice.FinalScoreDistribution[outcomes.scoreToBeat];
+      return choice.RemainingScoreDistribution[this.remainingScore];
     }
   }
 
@@ -344,8 +349,8 @@ class OutcomeCalculator {
       }
     }
 
-    this.chart.data.datasets[0].data = shiftDistribution(current.FinalScoreDistribution, this.game.grandTotal);
-    this.expectedScore = current.ExpectedFinalScore;
+    this.chart.data.datasets[0].data = shiftDistribution(current.RemainingScoreDistribution, this.game.grandTotal);
+    this.expectedScore = this.game.grandTotal + current.ExpectedRemainingScore;
   }
 }
 
@@ -493,7 +498,7 @@ function renderAdvice() {
 }
 
 function renderOutcomes() {
-  var expectedScore = game.grandTotal + Math.round(outcomes.expectedScore);
+  var expectedScore = Math.round(outcomes.expectedScore, 1);
   $("#expected-score").text(expectedScore);
 
   chart.update();

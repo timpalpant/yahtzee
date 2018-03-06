@@ -76,7 +76,8 @@ type OptimalMoveRequest struct {
 
 	// If ScoreToBeat is provided, then the result will be the move
 	// that maximizes the probability of achieving a final score
-	// greater than the given score.
+	// greater than the given score. The GameState must also contain
+	// the current total score.
 	ScoreToBeat int
 }
 
@@ -112,15 +113,15 @@ type OutcomeDistributionResponse struct {
 // HoldChoice represents one possible choice of dice to hold,
 // and the associated final outcome if that choice is made.
 type HoldChoice struct {
-	HeldDice               []int
-	ExpectedFinalScore     float32
-	FinalScoreDistribution []float32
+	HeldDice                   []int
+	ExpectedRemainingScore     float32
+	RemainingScoreDistribution []float32
 }
 
 // FillChoice represents the outcome of filling a particular box with
 // a given roll.
 type FillChoice struct {
-	BoxFilled              int
-	ExpectedFinalScore     float32
-	FinalScoreDistribution []float32
+	BoxFilled                  int
+	ExpectedRemainingScore     float32
+	RemainingScoreDistribution []float32
 }

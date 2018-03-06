@@ -2,6 +2,7 @@ package optimization
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -223,7 +224,11 @@ func bucketByTurn(toCompute []yahtzee.GameState) map[int][]yahtzee.GameState {
 // Compute calculates the value of the given GameState for
 // the observable that is maximized by this Strategy.
 func (s *Strategy) Compute(game yahtzee.GameState) GameResult {
-	return s.results[game]
+	if result, ok := s.results[game]; ok {
+		return result
+	}
+
+	panic(fmt.Errorf("no result for game %v", game))
 }
 
 // TurnOptimizer computes optimal choices for a single turn.
@@ -325,8 +330,15 @@ func (t *TurnOptimizer) GetFillOutcomes(roll yahtzee.Roll) map[yahtzee.Box]GameR
 	result := make(map[yahtzee.Box]GameResult, len(availableBoxes))
 	for _, box := range availableBoxes {
 		newGame, addedValue := t.game.FillBox(box, roll)
-		expectedRemainingScore := t.strategy.Compute(newGame)
-		expectedPositionValue := expectedRemainingScore.Shift(addedValue)
+		// If the observable is not score-dependent, clear the score
+		// and apply shift to reduce the game state space significantly.
+		var expectedPositionValue GameResult
+		if t.strategy.observable.ScoreDependent() {
+			expectedPositionValue = t.strategy.Compute(newGame)
+		} else {
+			expectedRemainingScore := t.strategy.Compute(newGame.Unscored())
+			expectedPositionValue = expectedRemainingScore.Shift(addedValue)
+		}
 		result[box] = expectedPositionValue
 	}
 
