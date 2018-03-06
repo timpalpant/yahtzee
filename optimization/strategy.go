@@ -135,7 +135,7 @@ func (s *Strategy) Populate(games []yahtzee.GameState, output string) {
 }
 
 func maxKey(m map[int][]yahtzee.GameState) int {
-	result := math.MinInt64
+	result := math.MinInt32
 	for key := range m {
 		if key > result {
 			result = key
@@ -146,7 +146,7 @@ func maxKey(m map[int][]yahtzee.GameState) int {
 }
 
 func minKey(m map[int][]yahtzee.GameState) int {
-	result := math.MaxInt64
+	result := math.MaxInt32
 	for key := range m {
 		if key < result {
 			result = key
