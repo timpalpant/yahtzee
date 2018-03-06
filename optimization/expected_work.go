@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	gob.Register(ExpectedWork{})
+	gob.Register(&ExpectedWork{})
 }
 
 // ExpectedWork implements GameResult, and represents

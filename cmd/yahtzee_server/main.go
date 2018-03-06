@@ -8,7 +8,6 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/golang/glog"
 
-	"github.com/timpalpant/yahtzee"
 	"github.com/timpalpant/yahtzee/optimization"
 	"github.com/timpalpant/yahtzee/server"
 )
@@ -27,30 +26,19 @@ func main() {
 	flag.Parse()
 
 	glog.Info("Loading expected scores table")
-	expectedScoreStrat := optimization.NewStrategy(optimization.NewExpectedValue())
-	err := expectedScoreStrat.LoadCache(*expectedScores)
+	expectedScoreStrat, err := optimization.LoadFromFile(*expectedScores)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	glog.Info("Loading score distributions table")
-	highScoreStrat := optimization.NewStrategy(optimization.NewScoreDistribution())
-	err = highScoreStrat.LoadCache(*scoreDistributions)
+	highScoreStrat, err := optimization.LoadFromFile(*scoreDistributions)
 	if err != nil {
 		glog.Fatal(err)
 	}
 
 	glog.Info("Loading expected work table")
-	expectedWorkStrat := optimization.NewStrategy(optimization.NewExpectedWork(0))
-	err = expectedWorkStrat.LoadCache(*expectedWork)
-	if err != nil {
-		glog.Fatal(err)
-	}
-
-	glog.Info("Reloading expected work table with initialized E_0")
-	e0 := expectedWorkStrat.Compute(yahtzee.NewGame())
-	expectedWorkStrat = optimization.NewStrategy(e0)
-	err = expectedWorkStrat.LoadCache(*expectedWork)
+	expectedWorkStrat, err := optimization.LoadFromFile(*expectedWork)
 	if err != nil {
 		glog.Fatal(err)
 	}

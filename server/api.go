@@ -10,6 +10,7 @@ type GameState struct {
 	Filled               []bool
 	YahtzeeBonusEligible bool
 	UpperHalfScore       int
+	TotalScore           int
 }
 
 func FromYahtzeeGameState(game yahtzee.GameState) GameState {
@@ -41,6 +42,7 @@ func (gs GameState) ToYahtzeeGameState() yahtzee.GameState {
 	}
 
 	game = game.AddUpperHalfScore(gs.UpperHalfScore)
+	game = game.AddScore(gs.TotalScore)
 	return game
 }
 
@@ -88,6 +90,8 @@ type OptimalMoveResponse struct {
 	// For expected value, it is the expected remaining value.
 	// For ScoreToBeat, it is the probability of beating the score.
 	Value float32
+	// True if the best move to achieve the desired score to beat is to quit.
+	StartOver bool
 }
 
 // OutcomeDistributionRequest gets the range of possible outcomes

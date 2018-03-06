@@ -136,7 +136,7 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 	var opt *optimization.TurnOptimizer
 	if req.ScoreToBeat > 0 {
-		opt = optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
+		opt = optimization.NewTurnOptimizer(ys.highScoreStrat, game)
 	} else {
 		opt = optimization.NewTurnOptimizer(ys.expectedScoreStrat, game)
 	}
@@ -222,8 +222,8 @@ func gameResultValue(gr optimization.GameResult, scoreToBeat int) float32 {
 	switch gr := gr.(type) {
 	case optimization.ExpectedValue:
 		return float32(gr)
-	case optimization.ExpectedWork:
-		return -gr.GetValue(scoreToBeat)
+	case *optimization.ExpectedWork:
+		return -float32(gr.Value)
 	case optimization.ScoreDistribution:
 		return gr.GetProbability(scoreToBeat)
 	}
