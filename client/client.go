@@ -54,38 +54,3 @@ func (c *Client) GetOptimalMove(game yahtzee.GameState, step yahtzee.TurnStep, r
 
 	return result, err
 }
-
-func (c *Client) GetGameValue(game yahtzee.GameState, scoreToBeat int) (float32, error) {
-	req := &server.OptimalMoveRequest{
-		GameState: server.FromYahtzeeGameState(game),
-		TurnState: server.TurnState{
-			Step: yahtzee.Begin,
-		},
-		ScoreToBeat: scoreToBeat,
-	}
-
-	b := new(bytes.Buffer)
-	enc := json.NewEncoder(b)
-	if err := enc.Encode(req); err != nil {
-		return 0, err
-	}
-
-	endpoint := c.uri + "/rest/v1/optimal_move"
-	resp, err := http.Post(endpoint, "application/json; charset=utf-8", b)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("request returned: %v", resp.Status)
-	}
-
-	result := &server.OptimalMoveResponse{}
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(result); err != nil {
-		return 0, err
-	}
-
-	return result.Value, err
-}

@@ -38,13 +38,6 @@ func NewYahtzeePlayer(detector *detector.YahtzeeDetector,
 
 func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
-	gameValue, err := yp.client.GetGameValue(yp.game, scoreToBeat)
-	if err != nil {
-		return err
-	}
-
-	glog.Infof("Initial game value is: %v", gameValue)
-
 	sleep := 3 * time.Second
 	for !yp.game.GameOver() {
 		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.currentScore)
@@ -59,13 +52,12 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 		}
 
 		glog.Infof("Detected roll: %v", roll)
-		remainingScore := scoreToBeat - yp.currentScore
-		resp, err := yp.client.GetOptimalMove(yp.game, yp.turnStep, roll, remainingScore)
+		resp, err := yp.client.GetOptimalMove(yp.game, yp.turnStep, roll, scoreToBeat)
 		if err != nil {
 			return err
 		}
 
-		if scoreToBeat > 0 && resp.Value < gameValue {
+		if scoreToBeat > 0 && resp.StartOver {
 			glog.Info("Giving up and starting a new game")
 			break
 		}
@@ -75,6 +67,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			fallthrough
 		case yahtzee.Hold2:
 			if len(resp.HeldDice) == yahtzee.NDice {
+				glog.Infof("Best option is to fill box, value: %g", resp.Value)
 				if err := yp.fillBoxEarly(roll, scoreToBeat); err != nil {
 					return err
 				}
@@ -91,6 +84,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 			}
 		case yahtzee.FillBox:
 			box := yahtzee.Box(resp.BoxFilled)
+			glog.Infof("Best option is to play: %v, value: %v", box, resp.Value)
 			scoreAdded := yp.fillBox(box, roll)
 			// Sleep extra long proportionally to score to be added.
 			sleep = 4*time.Second + time.Duration(1e9*float64(scoreAdded)/50.0)
@@ -175,6 +169,7 @@ func (yp *YahtzeePlayer) fillBoxEarly(roll []int, scoreToBeat int) error {
 	}
 
 	box := yahtzee.Box(resp.BoxFilled)
+	glog.Infof("Best option is to play: %v, value: %v", box, resp.Value)
 	yp.fillBox(box, roll)
 	return nil
 }
