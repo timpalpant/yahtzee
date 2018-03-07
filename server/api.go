@@ -26,6 +26,7 @@ func FromYahtzeeGameState(game yahtzee.GameState) GameState {
 		Filled:               filled,
 		YahtzeeBonusEligible: game.BonusEligible(),
 		UpperHalfScore:       game.UpperHalfScore(),
+		TotalScore:           game.TotalScore(),
 	}
 }
 
