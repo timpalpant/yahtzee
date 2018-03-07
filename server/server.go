@@ -143,6 +143,7 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 
 	workOpt := optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
 	e0 := ys.expectedWorkStrat.Compute(yahtzee.NewGame()).(*optimization.ExpectedWork).Value
+	var work float32
 	remainingScore := req.ScoreToBeat - game.TotalScore()
 	glog.Infof("Score to beat: %v, total score: %v, remaining: %v",
 		req.ScoreToBeat, game.TotalScore(), remainingScore)
@@ -152,36 +153,34 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 		outcome := opt.GetOptimalTurnOutcome()
 		resp.Value = gameResultValue(outcome, remainingScore)
 
-		work := workOpt.GetOptimalTurnOutcome().(*optimization.ExpectedWork).Value
-		resp.StartOver = (work > e0)
+		work = workOpt.GetOptimalTurnOutcome().(*optimization.ExpectedWork).Value
 	case yahtzee.Hold1:
 		outcomes := opt.GetHold1Outcomes(roll)
 		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
 
-		work := workOpt.GetBestHold1(roll).(*optimization.ExpectedWork).Value
-		resp.StartOver = (work > e0)
+		work = workOpt.GetBestHold1(roll).(*optimization.ExpectedWork).Value
 	case yahtzee.Hold2:
 		outcomes := opt.GetHold2Outcomes(roll)
 		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
 
-		work := workOpt.GetBestHold2(roll).(*optimization.ExpectedWork).Value
-		resp.StartOver = (work > e0)
+		work = workOpt.GetBestHold2(roll).(*optimization.ExpectedWork).Value
 	case yahtzee.FillBox:
 		outcomes := opt.GetFillOutcomes(roll)
 		fill, score := bestBox(outcomes, remainingScore)
 		resp.BoxFilled = int(fill)
 		resp.Value = score
 
-		work := workOpt.GetBestFill(roll).(*optimization.ExpectedWork).Value
-		resp.StartOver = (work > e0)
+		work = workOpt.GetBestFill(roll).(*optimization.ExpectedWork).Value
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
 
+	glog.Infof("Work required to win: %v, at start: %v", work, e0)
+	resp.StartOver = (work > e0)
 	return resp, nil
 }
 
@@ -217,13 +216,7 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 }
 
 func asDistribution(gr optimization.GameResult) []float32 {
-	sd := gr.(optimization.ScoreDistribution)
-	result := make([]float32, yahtzee.MaxScore)
-	for score := 0; score < yahtzee.MaxScore; score++ {
-		result[score] = sd.GetProbability(score)
-	}
-
-	return result
+	return []float32(gr.(optimization.ScoreDistribution))
 }
 
 func gameResultValue(gr optimization.GameResult, remainingScore int) float32 {

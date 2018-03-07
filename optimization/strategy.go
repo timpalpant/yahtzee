@@ -61,7 +61,7 @@ func LoadFromFile(filename string) (*Strategy, error) {
 		return nil, err
 	}
 
-	zero := results[yahtzee.NewGame()]
+	zero := results[yahtzee.NewGame()].New()
 	return &Strategy{zero, results}, nil
 }
 
@@ -94,6 +94,7 @@ func loadResults(filename string) (map[yahtzee.GameState]GameResult, error) {
 			return nil, err
 		}
 
+		glog.V(2).Infof("Game %v = %v", result.Key, result.Value)
 		results[result.Key] = result.Value
 	}
 
