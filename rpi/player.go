@@ -21,7 +21,6 @@ type YahtzeePlayer struct {
 	turnStep     yahtzee.TurnStep
 	held         []bool
 	prevRoll     []int
-	currentScore int
 }
 
 func NewYahtzeePlayer(detector *detector.YahtzeeDetector,
@@ -40,7 +39,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 	yp.controller.NewGame()
 	sleep := 3 * time.Second
 	for !yp.game.GameOver() {
-		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.currentScore)
+		glog.Infof("Turn %d, step %v, current score: %v", yp.game.Turn(), yp.turnStep, yp.game.TotalScore())
 		yp.controller.Roll()
 		// Wait for roll to complete.
 		time.Sleep(sleep)
@@ -93,7 +92,7 @@ func (yp *YahtzeePlayer) Play(scoreToBeat int) error {
 		yp.prevRoll = roll
 	}
 
-	glog.Infof("Final score: %v", yp.currentScore)
+	glog.Infof("Final score: %v", yp.game.TotalScore())
 	return nil
 }
 
@@ -189,7 +188,6 @@ func (yp *YahtzeePlayer) fillBox(box yahtzee.Box, dice []int) int {
 	}
 
 	// Next turn. Note: Held dice reset.
-	yp.currentScore += addValue
 	yp.game = game
 	yp.turnStep = yahtzee.Hold1
 	for die := range yp.held {
