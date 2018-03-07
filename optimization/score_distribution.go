@@ -73,10 +73,9 @@ func (sd ScoreDistribution) Add(gr GameResult, weight float32) GameResult {
 }
 
 func (sd ScoreDistribution) Shift(offset int) GameResult {
-	newSD := make(ScoreDistribution, len(sd))
+	copy(sd[offset+1:], sd)
 	for i := 0; i <= offset; i++ {
-		newSD[i] = 1
+		sd[i] = 1
 	}
-	copy(newSD[offset+1:], sd)
-	return newSD
+	return sd
 }

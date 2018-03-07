@@ -217,8 +217,8 @@ func (game GameState) FillBox(box Box, roll Roll) (GameState, int) {
 }
 
 func (game GameState) String() string {
-	return fmt.Sprintf("{ID: %d, Available: %v, BonusEligible: %v, UpperHalf: %v}",
-		game, game.AvailableBoxes(), game.BonusEligible(), game.UpperHalfScore())
+	return fmt.Sprintf("{ID: %d, Available: %v, BonusEligible: %v, UpperHalf: %v, TotalScore: %v}",
+		game, game.AvailableBoxes(), game.BonusEligible(), game.UpperHalfScore(), game.TotalScore())
 }
 
 func nativeUpperHalfBox(yahtzeeRoll Roll) Box {

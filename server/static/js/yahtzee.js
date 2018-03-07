@@ -498,7 +498,7 @@ function renderAdvice() {
 }
 
 function renderOutcomes() {
-  var expectedScore = Math.round(outcomes.expectedScore, 1);
+  var expectedScore = Math.round(outcomes.expectedScore);
   $("#expected-score").text(expectedScore);
 
   chart.update();

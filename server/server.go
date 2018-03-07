@@ -131,7 +131,7 @@ func formatFillChoices(expectedScores map[yahtzee.Box]optimization.GameResult,
 
 func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveResponse, error) {
 	game := req.GameState.ToYahtzeeGameState()
-	roll := asRoll(req.TurnState.Dice)
+	roll := yahtzee.NewRollFromDice(req.TurnState.Dice)
 	glog.Infof("Computing optimal move for game: %v, roll: %v", game, roll)
 
 	var opt *optimization.TurnOptimizer
@@ -144,6 +144,8 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 	workOpt := optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
 	e0 := ys.expectedWorkStrat.Compute(yahtzee.NewGame()).(*optimization.ExpectedWork).Value
 	remainingScore := req.ScoreToBeat - game.TotalScore()
+	glog.Infof("Score to beat: %v, total score: %v, remaining: %v",
+		req.ScoreToBeat, game.TotalScore(), remainingScore)
 	resp := &OptimalMoveResponse{}
 	switch req.TurnState.Step {
 	case yahtzee.Begin:
@@ -184,10 +186,10 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 }
 
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
-	game := req.GameState.ToYahtzeeGameState()
-	roll := asRoll(req.TurnState.Dice)
-	hsOpt := optimization.NewTurnOptimizer(ys.highScoreStrat, game.Unscored())
-	esOpt := optimization.NewTurnOptimizer(ys.expectedScoreStrat, game.Unscored())
+	game := req.GameState.ToYahtzeeGameState().Unscored()
+	roll := yahtzee.NewRollFromDice(req.TurnState.Dice)
+	hsOpt := optimization.NewTurnOptimizer(ys.highScoreStrat, game)
+	esOpt := optimization.NewTurnOptimizer(ys.expectedScoreStrat, game)
 	glog.Infof("Computing outcomes for game: %v, roll: %v", game, roll)
 
 	resp := &OutcomeDistributionResponse{}
@@ -212,15 +214,6 @@ func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeD
 	resp.FillChoices = formatFillChoices(expectedScores, scoreDistributions)
 
 	return resp, nil
-}
-
-func asRoll(dice []int) yahtzee.Roll {
-	r := yahtzee.NewRoll()
-	for _, die := range dice {
-		r = r.Add(die)
-	}
-
-	return r
 }
 
 func asDistribution(gr optimization.GameResult) []float32 {
