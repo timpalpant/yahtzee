@@ -275,6 +275,15 @@ func (t *TurnOptimizer) GetOptimalTurnOutcome() GameResult {
 	return result
 }
 
+func (t *TurnOptimizer) GetTurnOutcomes() map[yahtzee.Roll]GameResult {
+	result := make(map[yahtzee.Roll]GameResult, len(yahtzee.AllDistinctRolls()))
+	for _, roll1 := range yahtzee.AllDistinctRolls() {
+		result[roll1] = t.GetBestHold1(roll1)
+	}
+
+	return result
+}
+
 func (t *TurnOptimizer) GetBestHold1(roll1 yahtzee.Roll) GameResult {
 	return t.maxOverHolds(roll1, func(held1 yahtzee.Roll) GameResult {
 		return t.expectationOverRolls(t.held1Cache, held1, t.GetBestHold2)

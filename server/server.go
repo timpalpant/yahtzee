@@ -141,9 +141,6 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 		opt = optimization.NewTurnOptimizer(ys.expectedScoreStrat, game.Unscored())
 	}
 
-	workOpt := optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
-	e0 := ys.expectedWorkStrat.Compute(yahtzee.NewGame()).(*optimization.ExpectedWork).Value
-	var work float32
 	remainingScore := req.ScoreToBeat - game.TotalScore()
 	glog.Infof("Score to beat: %v, total score: %v, remaining: %v",
 		req.ScoreToBeat, game.TotalScore(), remainingScore)
@@ -152,36 +149,81 @@ func (ys *YahtzeeServer) getOptimalMove(req *OptimalMoveRequest) (*OptimalMoveRe
 	case yahtzee.Begin:
 		outcome := opt.GetOptimalTurnOutcome()
 		resp.Value = gameResultValue(outcome, remainingScore)
-
-		work = workOpt.GetOptimalTurnOutcome().(*optimization.ExpectedWork).Value
 	case yahtzee.Hold1:
 		outcomes := opt.GetHold1Outcomes(roll)
 		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
-
-		work = workOpt.GetBestHold1(roll).(*optimization.ExpectedWork).Value
 	case yahtzee.Hold2:
 		outcomes := opt.GetHold2Outcomes(roll)
 		hold, score := bestHold(outcomes, remainingScore)
 		resp.HeldDice = hold.Dice()
 		resp.Value = score
-
-		work = workOpt.GetBestHold2(roll).(*optimization.ExpectedWork).Value
 	case yahtzee.FillBox:
 		outcomes := opt.GetFillOutcomes(roll)
 		fill, score := bestBox(outcomes, remainingScore)
 		resp.BoxFilled = int(fill)
 		resp.Value = score
-
-		work = workOpt.GetBestFill(roll).(*optimization.ExpectedWork).Value
 	default:
 		return nil, fmt.Errorf("Invalid turn state: %v", req.TurnState.Step)
 	}
 
-	glog.Infof("Work required to win: %v, at start: %v", work, e0)
-	resp.StartOver = (work > e0)
+	resp.StartOver = ys.shouldQuit(req)
 	return resp, nil
+}
+
+// Recommend starting over if none of the possible outcomes
+// has an expected work less than starting over.
+func (ys *YahtzeeServer) shouldQuit(req *OptimalMoveRequest) bool {
+	if req.ScoreToBeat == 0 {
+		return false
+	}
+
+	game := req.GameState.ToYahtzeeGameState()
+	roll := yahtzee.NewRollFromDice(req.TurnState.Dice)
+	remainingScore := req.ScoreToBeat - game.TotalScore()
+	opt := optimization.NewTurnOptimizer(ys.expectedWorkStrat, game)
+	e0 := gameResultValue(ys.expectedWorkStrat.Compute(yahtzee.NewGame()), remainingScore)
+	glog.V(1).Infof("E_0 value: %v", e0)
+	switch req.TurnState.Step {
+	case yahtzee.Begin:
+		for _, outcome := range opt.GetTurnOutcomes() {
+			value := gameResultValue(outcome, remainingScore)
+			glog.V(1).Infof("Outcome %v: value %v", outcome, value)
+			if value > e0 {
+				return false
+			}
+		}
+	case yahtzee.Hold1:
+		for _, outcome := range opt.GetHold1Outcomes(roll) {
+			value := gameResultValue(outcome, remainingScore)
+			glog.V(1).Infof("Outcome %v: value %v", outcome, value)
+			if value > e0 {
+				return false
+			}
+		}
+	case yahtzee.Hold2:
+		for _, outcome := range opt.GetHold2Outcomes(roll) {
+			value := gameResultValue(outcome, remainingScore)
+			glog.V(1).Infof("Outcome %v: value %v", outcome, value)
+			if value > e0 {
+				return false
+			}
+		}
+	case yahtzee.FillBox:
+		for _, outcome := range opt.GetFillOutcomes(roll) {
+			value := gameResultValue(outcome, remainingScore)
+			glog.V(1).Infof("Outcome %v: value %v", outcome, value)
+			if value > e0 {
+				return false
+			}
+		}
+	default:
+		glog.Warningf("Invalid turn state: %v", req.TurnState.Step)
+		return false
+	}
+
+	return true
 }
 
 func (ys *YahtzeeServer) getOutcomes(req *OutcomeDistributionRequest) (*OutcomeDistributionResponse, error) {
@@ -237,6 +279,7 @@ func bestHold(outcomes map[yahtzee.Roll]optimization.GameResult, remainingScore 
 	var bestValue float32 = -math.MaxFloat32
 	for hold, gr := range outcomes {
 		value := gameResultValue(gr, remainingScore)
+		glog.V(1).Infof("Hold %v: value %v", hold, value)
 		if value >= bestValue {
 			best = hold
 			bestValue = value
@@ -251,6 +294,7 @@ func bestBox(outcomes map[yahtzee.Box]optimization.GameResult, remainingScore in
 	var bestValue float32 = -math.MaxFloat32
 	for box, gr := range outcomes {
 		value := gameResultValue(gr, remainingScore)
+		glog.V(1).Infof("Box %v: value %v", box, value)
 		if value >= bestValue {
 			best = box
 			bestValue = value
