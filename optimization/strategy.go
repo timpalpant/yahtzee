@@ -327,9 +327,7 @@ func (t *TurnOptimizer) GetBestFill(roll yahtzee.Roll) GameResult {
 			expectedPositionValue = t.strategy.Compute(newGame)
 		} else {
 			expectedRemainingScore := t.strategy.Compute(newGame.Unscored())
-			expectedPositionValue = t.alloc()
-			expectedPositionValue = expectedRemainingScore.CopyInto(expectedPositionValue)
-			expectedPositionValue = expectedPositionValue.Shift(addedValue)
+			expectedPositionValue = expectedRemainingScore.CopyInto(t.alloc()).Shift(addedValue)
 			defer t.release(expectedPositionValue)
 		}
 		best = best.Max(expectedPositionValue)
@@ -349,7 +347,8 @@ func (t *TurnOptimizer) GetFillOutcomes(roll yahtzee.Roll) map[yahtzee.Box]GameR
 			expectedPositionValue = t.strategy.Compute(newGame)
 		} else {
 			expectedRemainingScore := t.strategy.Compute(newGame.Unscored())
-			expectedPositionValue = expectedRemainingScore.Shift(addedValue)
+			expectedPositionValue = expectedRemainingScore.CopyInto(t.alloc()).Shift(addedValue)
+			defer t.release(expectedPositionValue)
 		}
 		result[box] = expectedPositionValue
 	}
